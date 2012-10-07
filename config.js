@@ -4,9 +4,9 @@ var os = require('os');
 
 exports.tcp_port = 6000;
 exports.udp_port = 6001;
-exports.broadcast = '255.255.255.255';
+exports.broadcast = '140.126.130.255';
 exports.address = null;
-exports.wait = 1000;
+exports.wait = 500;
 exports.ip_list = getIP();
 exports.hash = messString(8);
 
