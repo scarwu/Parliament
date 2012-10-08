@@ -9,12 +9,16 @@ var dgram = require('dgram');
 
 // Require custom module
 var config = require('./config');
+var tcp_server = require('./library/tcp_server');
+var udp_server = require('./library/udp_server');
 
 // Parliament status
-var is_leader = false;
-var is_init = false;
-var is_quit = false;
-var member = {}
+global.parliament = {
+	is_leader: false,
+	is_init: false,
+	is_quit: false,
+	member: {}
+}
 
 console.log('Parliament Start');
 
@@ -23,106 +27,17 @@ console.log('Parliament Start');
  * 
  * Listening port 6000
  */
-var tcp_server = net.createServer(function(socket) {
-	socket.on('data', function(message) {
-		console.log('Log ' + sock.remoteAddress + ': ' + message);
-		
-		var data = JSON.parse(message);
-		
-		switch(data.action) {
-			case 'list':
-				sock.write(JSON.stringify(member));
-				sock.pipe(sock);
-				break;
-		}
-	    
-	});
-	
-}).listen(config.tcp_port);
+tcp_server.start();
 
 /**
  * UDP Server Handler
  * 
  * Listening port 6001
  */
-var udp_server = dgram.createSocket("udp4");
-
-udp_server.on('message', function(message, remote) {
-	var data = JSON.parse(message);
-
-	switch(data.action) {
-		case 'join':
-				if(is_init && is_leader) {
-					member[remote.address] = {
-						'role': 'member',
-						'hash': data.hash
-					}
-					console.log(member);
-					
-					// Accept
-					var message = new Buffer(JSON.stringify({
-						'action': 'accept',
-						'member': member
-					}));
-					udp_server.send(message, 0, message.length, config.udp_port, remote.address);
-					console.log('Send Command: Accept');
-					
-					// Refresh
-					var message = new Buffer(JSON.stringify({
-						'action': 'refresh',
-						'member': member
-					}));
-					udp_server.setBroadcast(true);
-					udp_server.send(message, 0, message.length, config.udp_port, config.broadcast);
-					console.log('Send Command: Refresh');
-				}
-				
-				if(!is_init && remote.address in config.ip_list && data.hash == config.hash)
-					config.address = remote.address;
-			break;
-		case 'accept':
-			if(!is_init) {
-				is_init = true;
-				member = data.member;
-				console.log('Set role: Member');
-				console.log(member);
-			}
-			break;
-		case 'quit':
-			if(remote.address != config.address) {
-				delete member[remote.address];
-				
-				if(data.leader == config.address) {
-					is_leader = true;
-					member[config.address]['role'] = 'leader';
-					var message = new Buffer(JSON.stringify({
-						'action': 'refresh',
-						'member': member
-					}));
-					udp_server.setBroadcast(true);
-					udp_server.send(message, 0, message.length, config.udp_port, config.broadcast);
-					console.log('Send Command: Refresh');
-				}
-				
-				console.log(remote.address + ' was Quit');
-			}
-			break;
-		case 'refresh':
-			if(is_init) {
-				member = data.member;
-				console.log('Refresh Member List');
-				console.log(member);
-			}
-			break;
-		default:
-			console.log('Undefined command.');
-	}
-});
-
-udp_server.bind(config.udp_port, config.network);
+udp_server.start();
 
 /**
- * UDP Client
+ * UDP Client - Join Group
  */
 var message = new Buffer(JSON.stringify({
 	'action': 'join',
@@ -137,33 +52,34 @@ client.send(message, 0, message.length, config.udp_port, config.broadcast, funct
     console.log('Send Command: Join');
     client.close();
     
+    console.log('Wait response: ' + config.wait + ' ms');
     setTimeout(function() {		
-		if(!is_init && member != {}) {
-			is_init = true;
-			is_leader = true;
-			member[config.address] = {
+		if(!global.parliament.is_init && global.parliament.member != {}) {
+			global.parliament.is_init = true;
+			global.parliament.is_leader = true;
+			global.parliament.member[config.address] = {
 				'role': 'leader',
 				'hash': config.hash
 			}
 			
 			console.log('Set role: Leader');
-			console.log(member);
+			console.log(global.parliament.member);
 		}
     }, config.wait);
 });
 
 /**
- * Parliament Quit
+ * UDP Client - Quit Group
  * 
  * if process catch SIGINT or Process Exit Event then Send Quit Commmd 
  */
 function sendQuit() {
-	is_quit = true;
+	global.parliament.is_quit = true;
 	
-	if(is_leader) {
+	if(global.parliament.is_leader) {
 		var leader = '0.0.0.0';
-		for(var ip in member) {
-			if(member[ip]['role'] != 'leader') {
+		for(var ip in global.parliament.member) {
+			if(global.parliament.member[ip]['role'] != 'leader') {
 				leader = ip;
 				break;
 			}
@@ -175,7 +91,7 @@ function sendQuit() {
 	}
 	else
 		var message = new Buffer(JSON.stringify({
-		  'action': 'quit'
+			'action': 'quit'
 		}));
 	
 	var client = dgram.createSocket("udp4");
@@ -191,18 +107,20 @@ function sendQuit() {
 	});
 	
 	// Close All Server Listening
-	tcp_server.close();
-	udp_server.close();
+	// tcp_server.close();
+	// udp_server.close();
 }
 
+// If process self exit
 process.on('exit', function() {
-	if(!is_quit)
+	if(!global.parliament.is_quit)
 		// Send Quit Command
 		sendQuit();
 });
 
+// If User pressed Ctrl-C
 process.on('SIGINT', function() {
-	if(!is_quit) {
+	if(!global.parliament.is_quit) {
 		// Send Quit Command	
 		sendQuit();
 	  	
