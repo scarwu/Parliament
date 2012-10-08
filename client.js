@@ -9,12 +9,28 @@ if(process.argv.length <= 3)
 	process.exit();
 
 switch(process.argv[3]) {
+	case 'read':
+		var client = net.connect({
+			'port': config.tcp_port,
+			'host': process.argv[2]
+		}, function() {
+			client.write(JSON.stringify({
+				'action': 'read',
+				'path': process.argv[4]
+			}));
+		});
+		
+		client.on('data', function(data) {
+			console.log(data.toString());
+			client.end();
+		});
+		
+		break;
 	case 'list':
 		var client = net.connect({
 			'port': config.tcp_port,
 			'host': process.argv[2]
 		}, function() {
-			console.log('Connected ------------------------------------');
 			client.write(JSON.stringify({
 				'action': 'list'
 			}));
@@ -25,9 +41,6 @@ switch(process.argv[3]) {
 			client.end();
 		});
 		
-		client.on('end', function() {
-			console.log('Disconnected ---------------------------------');
-		});
 		break;
 	case 'heartbeat':
 		var message = new Buffer(JSON.stringify({
@@ -43,8 +56,11 @@ switch(process.argv[3]) {
 				client.close();
 			}, 2500);
 		});
-		client.on('message', function(buffer, rinfo) {
-			console.log(buffer.toString());
+		client.on('message', function(buffer, remote) {
+			if(!(remote.address in config.ip_list)) {
+				data = JSON.parse(buffer.toString());
+				console.log(remote.address + ' is ' + data.status);
+			}
 		});
 		break;
 }

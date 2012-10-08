@@ -106,9 +106,9 @@ function sendQuit() {
 	    client.close();
 	});
 	
-	// Close All Server Listening
-	// tcp_server.close();
-	// udp_server.close();
+	// Close All Server
+	tcp_server.stop();
+	udp_server.stop();
 }
 
 // If process self exit

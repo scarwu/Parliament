@@ -1,6 +1,7 @@
 'use strict'
 
 // Require module
+var net = require('net');
 var dgram = require('dgram');
 
 // Require custom module
@@ -8,6 +9,7 @@ var config = require('../config');
 
 // Module Exports
 exports.start = start;
+exports.stop = stop;
 
 var udp_server = dgram.createSocket("udp4");
 
@@ -95,7 +97,15 @@ udp_server.on('message', function(message, remote) {
 	}
 });
 
+udp_server.on('error', function() {
+	
+});
+
 function start() {
 	udp_server.bind(config.udp_port, config.network);
+}
+
+function stop() {
+	udp_server.close();
 }
 
