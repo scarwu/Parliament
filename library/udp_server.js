@@ -1,6 +1,7 @@
 'use strict'
 
 // Require module
+var fs = require('fs');
 var net = require('net');
 var dgram = require('dgram');
 
@@ -18,32 +19,38 @@ udp_server.on('message', function(message, remote) {
 	var data = JSON.parse(message);
 	
 	switch(data.action) {
+		// Check server is alive or not
 		case 'heartbeat':
 			var message = new Buffer(JSON.stringify({
 				'status': 'alive'
 			}));
 			udp_server.send(message, 0, message.length, config.udp_port, remote.address);
 			break;
+
+		// New request join group
 		case 'join':
 			// is init and is leader
 			if(status.is_init && status.is_leader) {
-				status.member[remote.address] = {
+				status.member[data.hash] = {
 					'role': 'member',
-					'hash': data.hash
+					'hash': data.hash,
+					'ip': remote.address
 				}
 				console.log(status.member);
 				
-				// Accept
+				// Send Command: Accept
 				var message = new Buffer(JSON.stringify({
 					'action': 'accept',
+					'hash': config.hash,
 					'member': status.member
 				}));
 				udp_server.send(message, 0, message.length, config.udp_port, remote.address);
 				console.log('Send Command: Accept');
 				
-				// Refresh
+				// Send Command: Refresh
 				var message = new Buffer(JSON.stringify({
 					'action': 'refresh',
+					'hash': config.hash,
 					'member': status.member
 				}));
 				udp_server.setBroadcast(true);
@@ -55,6 +62,8 @@ udp_server.on('message', function(message, remote) {
 			if(!status.is_init && remote.address in config.ip_list && data.hash == config.hash)
 				config.address = remote.address;
 			break;
+
+		// Accept new node join group
 		case 'accept':
 			// is not init
 			if(!status.is_init) {
@@ -64,16 +73,21 @@ udp_server.on('message', function(message, remote) {
 				console.log(status.member);
 			}
 			break;
+
+		// Quit group
 		case 'quit':
 			// IP is not same, is init
 			if(remote.address != config.address && status.is_init) {
-				delete status.member[remote.address];
+				delete status.member[data.hash];
 				
-				if(data.leader == config.address) {
+				if(data.leader == config.hash) {
 					status.is_leader = true;
-					status.member[config.address]['role'] = 'leader';
+					status.member[config.hash]['role'] = 'leader';
+
+					// Send Command: Refresh
 					var message = new Buffer(JSON.stringify({
 						'action': 'refresh',
+						'hash': config.hash,
 						'member': status.member
 					}));
 					udp_server.setBroadcast(true);
@@ -82,8 +96,11 @@ udp_server.on('message', function(message, remote) {
 				}
 				
 				console.log(remote.address + ' was Quit');
+				console.log(status.member);
 			}
 			break;
+
+		// Refresh list
 		case 'refresh':
 			// is init
 			if(status.is_init) {
@@ -108,4 +125,3 @@ function start() {
 function stop() {
 	udp_server.close();
 }
-

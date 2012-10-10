@@ -9,7 +9,11 @@ if(process.argv.length <= 3)
 	process.exit();
 
 switch(process.argv[3]) {
+	// Send read
 	case 'read':
+		if(process.argv.length <= 4)
+			process.exit();
+
 		var client = net.connect({
 			'port': config.tcp_port,
 			'host': process.argv[2]
@@ -26,6 +30,8 @@ switch(process.argv[3]) {
 		});
 		
 		break;
+
+	// Send list
 	case 'list':
 		var client = net.connect({
 			'port': config.tcp_port,
@@ -42,6 +48,8 @@ switch(process.argv[3]) {
 		});
 		
 		break;
+
+	// Send Heartbeat
 	case 'heartbeat':
 		var message = new Buffer(JSON.stringify({
 			'action': 'heartbeat'
@@ -57,11 +65,57 @@ switch(process.argv[3]) {
 			}, 2500);
 		});
 		client.on('message', function(buffer, remote) {
-			if(!(remote.address in config.ip_list)) {
-				data = JSON.parse(buffer.toString());
+			data = JSON.parse(buffer.toString());
+			if(data.status != undefined)
 				console.log(remote.address + ' is ' + data.status);
-			}
 		});
 		break;
+
+	// Sned Create
+	case 'create':
+		if(process.argv.length <= 5)
+			process.exit();
+
+		var client = net.connect({
+			'port': config.tcp_port,
+			'host': process.argv[2]
+		}, function() {
+			client.write(JSON.stringify({
+				'action': 'create',
+				'path': process.argv[4],
+				'src': process.argv[5]
+			}));
+		});
+		
+		client.on('data', function(data) {
+			console.log(data.toString());
+			client.end();
+		});
+
+		break;
+
+	// Send Backup
+	case 'backup':
+		if(process.argv.length <= 4)
+			process.exit();
+
+		var client = net.connect({
+			'port': config.tcp_port,
+			'host': process.argv[2]
+		}, function() {
+			client.write(JSON.stringify({
+				'action': 'backup',
+				'path': process.argv[4]
+			}));
+		});
+		
+		client.on('data', function(data) {
+			console.log(data.toString());
+			client.end();
+		});
+
+		break;
+	default:
+		console.log('No command');
 }
 

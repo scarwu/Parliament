@@ -25,4 +25,13 @@ exports.target = '/rnfs_shared';
 exports.ip_list = assist.getIP();
 
 // Datanode ID
-exports.hash = assist.messString(8);
+exports.hash = assist.hash();
+
+// Database Config
+exports.db = {
+	'user': 'rnfs',
+	'pass': 'rnfs',
+	'host': '140.126.130.200',
+	'port': 3306,
+	'name': 'parliament'
+}

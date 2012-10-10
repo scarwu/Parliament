@@ -57,9 +57,10 @@ client.send(message, 0, message.length, config.udp_port, config.broadcast, funct
 		if(!global.parliament.is_init && global.parliament.member != {}) {
 			global.parliament.is_init = true;
 			global.parliament.is_leader = true;
-			global.parliament.member[config.address] = {
+			global.parliament.member[config.hash] = {
 				'role': 'leader',
-				'hash': config.hash
+				'hash': config.hash,
+				'ip': config.address
 			}
 			
 			console.log('Set role: Leader');
@@ -78,22 +79,25 @@ function sendQuit() {
 	
 	if(global.parliament.is_leader) {
 		var leader = '0.0.0.0';
-		for(var ip in global.parliament.member) {
-			if(global.parliament.member[ip]['role'] != 'leader') {
-				leader = ip;
+		for(var hash in global.parliament.member) {
+			if(global.parliament.member[hash]['role'] != 'leader') {
+				leader = global.parliament.member[hash]['ip'];
 				break;
 			}
 		}
 		var message = new Buffer(JSON.stringify({
-		  'action': 'quit',
-		  'leader': leader
+			'action': 'quit',
+			'leader': leader,
+			'hash': config.hash
 		}));
 	}
 	else
 		var message = new Buffer(JSON.stringify({
-			'action': 'quit'
+			'action': 'quit',
+			'hash': config.hash
 		}));
 	
+	// Send Command: Quit
 	var client = dgram.createSocket("udp4");
 	
 	client.bind(config.udp_port);

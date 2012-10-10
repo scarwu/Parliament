@@ -1,10 +1,13 @@
 'use strict'
 
+// Require module
 var os = require('os');
+var fs = require('fs');
 
 // Module Exports
 exports.getIP = getIP;
 exports.messString = messString;
+exports.hash = hash;
 
 // Get local devices IP
 function getIP() {
@@ -39,4 +42,18 @@ function messString(length) {
 	} while(str.length < length);
 
 	return str;
+}
+
+function hash() {
+	var result = null;
+	var path = process.argv[1].substring(0, process.argv[1].length - 13) + 'uuid';
+
+	if(fs.existsSync(path))
+		result = fs.readFileSync(path, null).toString();
+	else {
+		result = messString(8);
+		fs.writeFileSync(path, result);
+	}
+
+	return result;
 }
