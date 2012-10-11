@@ -58,17 +58,32 @@ var tcp_server = net.createServer(function(socket) {
 			// Delete file
 			case 'delete':
 				var path = config.target + data.path;
-				var conn = mysql.createConnectionSync();
-				conn.connectSync(config.db.host, config.db.user, config.db.pass, config.db.name, config.db.port);
+				
+				console.log('Command delete: ' + data.path);
 
-				if(fs.existsSync(path)) {
-					fs.unlink(path);
+				if(fs.existsSync(path))
+					fs.unlink(path, function(error) {
+						if(error) {
+							socket.end();
+							return false;
+						}
 
+						var conn = mysql.createConnectionSync();
+						conn.connectSync(config.db.host, config.db.user, config.db.pass, config.db.name, config.db.port);
 
+						var sql = 'SELECT entity FROM relation WHERE path="' + data.path + '"';
+						var entity = conn.querySync(sql).fetchAllSync()[0]['entity'].split('|');
 
-					if(conn.connectedSync())
-						conn.closeSync();
-				}
+						for(var index in entity)
+							if(entity[index] == config.hash)
+								delete entity[index];
+
+						var sql = 'UPDATE relation SET entity="' + entity.join('|') + '" WHERE path="' + data.path + '"';
+						conn.querySync(sql);
+
+						if(conn.connectedSync())
+							conn.closeSync();
+					});
 				break;
 
 			// Backup file
@@ -91,6 +106,11 @@ var tcp_server = net.createServer(function(socket) {
 				client.on('data', function(file) {
 
 					fs.writeFile(path, file, function(error) {
+						if(error) {
+							socket.end();
+							return false;
+						}
+
 						var conn = mysql.createConnectionSync();
 						conn.connectSync(config.db.host, config.db.user, config.db.pass, config.db.name, config.db.port);
 
@@ -98,7 +118,10 @@ var tcp_server = net.createServer(function(socket) {
 						var entity = conn.querySync(sql).fetchAllSync()[0]['entity'] + '|' + config.hash;
 
 						var sql = 'UPDATE relation SET entity="' + entity + '" WHERE path="' + data.path + '"';
-						conn.query(sql);
+						conn.querySync(sql);
+
+						if(conn.connectedSync())
+							conn.closeSync();
 
 						client.end();
 					});
@@ -119,29 +142,35 @@ var tcp_server = net.createServer(function(socket) {
 					fs.unlink(path);
 
 				fs.copy(data.src, path, function(error) {
-					if(!error) {
-						var sql = 'INSERT INTO relation (path, entity) VALUES ("' + data.path + '", "' + config.hash + '");';
-						conn.query(sql);
-						
-						// Call anothor server backup file
-						var count = 0;
-						for(var hash in status.member)
-							if(hash != config.hash) {
-								var client = net.connect({
-									'port': config.tcp_port,
-									'host': status.member[hash]['ip']
-								}, function() {
-									client.write(JSON.stringify({
-										'action': 'backup',
-										'path': data.path
-									}));
-									client.end();
-								});
-
-								if(++count >= config.backup)
-									break;
-							}
+					if(error) {
+						socket.end();
+						return false;
 					}
+
+					var sql = 'INSERT INTO relation (path, entity) VALUES ("' + data.path + '", "' + config.hash + '");';
+					conn.querySync(sql);
+
+					if(conn.connectedSync())
+						conn.closeSync();
+					
+					// Call anothor server backup file
+					var count = 0;
+					for(var hash in status.member)
+						if(hash != config.hash) {
+							var client = net.connect({
+								'port': config.tcp_port,
+								'host': status.member[hash]['ip']
+							}, function() {
+								client.write(JSON.stringify({
+									'action': 'backup',
+									'path': data.path
+								}));
+								client.end();
+							});
+
+							if(++count >= config.backup)
+								break;
+						}
 				});
 				
 				break;
@@ -153,8 +182,13 @@ var tcp_server = net.createServer(function(socket) {
 				console.log('Command Read: ' + data.path);
 
 				if(fs.existsSync(path))
-					fs.readFile(path, null, function(error, data) {
-						socket.write(data);
+					fs.readFile(path, null, function(error, file) {
+						if(error) {
+							socket.end();
+							return false;
+						}
+
+						socket.write(file);
 						socket.pipe(socket);
 					});
 				else {
@@ -163,6 +197,9 @@ var tcp_server = net.createServer(function(socket) {
 
 					var sql = 'SELECT entity FROM relation WHERE path="' + data.path + '"';
 					var entity = conn.querySync(sql).fetchAllSync()[0]['entity'].split('|');
+
+					if(conn.connectedSync())
+						conn.closeSync();
 
 					var client = net.connect({
 						'port': config.tcp_port,

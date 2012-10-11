@@ -14,6 +14,7 @@ switch(process.argv[3]) {
 		if(process.argv.length <= 4)
 			process.exit();
 
+		var timer = null;
 		var client = net.connect({
 			'port': config.tcp_port,
 			'host': process.argv[2]
@@ -23,13 +24,14 @@ switch(process.argv[3]) {
 				'path': process.argv[4]
 			}));
 
-			setTimeout(function() {
+			timer = setTimeout(function() {
 				client.end();
 			}, 1000);
 		});
 		
 		client.on('data', function(data) {
 			console.log(data.toString());
+			clearTimeout(timer);
 			client.end();
 		});
 		
@@ -37,6 +39,7 @@ switch(process.argv[3]) {
 
 	// Send list
 	case 'list':
+		var timer = null;
 		var client = net.connect({
 			'port': config.tcp_port,
 			'host': process.argv[2]
@@ -44,11 +47,16 @@ switch(process.argv[3]) {
 			client.write(JSON.stringify({
 				'action': 'list'
 			}));
+
+			timer = setTimeout(function() {
+				client.end();
+			}, 1000);
 		});
 		
 		client.on('data', function(data) {
 			console.log(JSON.parse(data.toString()));
 			client.end();
+			clearTimeout(timer);
 		});
 		
 		break;
@@ -82,6 +90,7 @@ switch(process.argv[3]) {
 		if(process.argv.length <= 5)
 			process.exit();
 
+		var timer = null;
 		var client = net.connect({
 			'port': config.tcp_port,
 			'host': process.argv[2]
@@ -92,7 +101,7 @@ switch(process.argv[3]) {
 				'src': process.argv[5]
 			}));
 
-			setTimeout(function() {
+			timer = setTimeout(function() {
 				client.end();
 			}, 1000);
 		});
@@ -100,6 +109,7 @@ switch(process.argv[3]) {
 		client.on('data', function(data) {
 			console.log(data.toString());
 			client.end();
+			clearTimeout(timer);
 		});
 
 		break;
@@ -109,6 +119,7 @@ switch(process.argv[3]) {
 		if(process.argv.length <= 4)
 			process.exit();
 
+		var timer = null;
 		var client = net.connect({
 			'port': config.tcp_port,
 			'host': process.argv[2]
@@ -118,7 +129,7 @@ switch(process.argv[3]) {
 				'path': process.argv[4]
 			}));
 
-			setTimeout(function() {
+			timer = setTimeout(function() {
 				client.end();
 			}, 1000);
 		});
@@ -126,6 +137,7 @@ switch(process.argv[3]) {
 		client.on('data', function(data) {
 			console.log(data.toString());
 			client.end();
+			clearTimeout(timer);
 		});
 
 		break;

@@ -134,17 +134,19 @@ process.on('exit', function() {
 });
 
 // Catch process uncaught Exception
-// process.on('uncaughtException', function() {
-// 	if(!global.parliament.is_quit) {
-// 		// Send Quit Command	
-// 		sendQuit();
+process.on('uncaughtException', function(except) {
+	console.log(except);
+
+	if(!global.parliament.is_quit) {
+		// Send Quit Command	
+		sendQuit();
 	  	
-// 	  	// Wait N Second
-// 	  	setTimeout(function() {
-// 			process.exit(0);
-// 		}, config.wait);
-// 	}
-// });
+	  	// Wait N Second
+	  	setTimeout(function() {
+			process.exit(1);
+		}, config.wait);
+	}
+});
 
 // Catch Ctrl-C
 process.on('SIGINT', function() {
