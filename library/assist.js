@@ -5,24 +5,34 @@ var os = require('os');
 var fs = require('fs');
 
 // Module Exports
-exports.getIP = getIP;
 exports.messString = messString;
 exports.hash = hash;
+exports.getAddress = getAddress;
+exports.getBroadcast = getBroadcast;
 
-// Get local devices IP
-function getIP() {
-	var ip = new Array();
-	var ifaces = os.networkInterfaces();
+// Get IP Address
+function getAddress(device_name) {
+	var ip_address = '127.0.0.1';
+	var device = os.networkInterfaces()[device_name];
 
-	for (var dev in ifaces) {
-		var alias = 0;
-		ifaces[dev].forEach(function(details) {
-			if (details.family == 'IPv4' && details.address != '127.0.0.1')
-				ip[details.address] = details.internal;
-		});
-	}
+	for(var index in device) {
+		if(device[index].family == 'IPv4')
+			ip_address = device[index].address;
+	};
 
-	return ip;
+	return ip_address;
+}
+
+// Get Broadcast Address
+function getBroadcast(device, netmask) {
+	var broadcast = [255, 255, 255, 255];
+	var address = getAddress(device).split('.');
+	netmask = netmask.split('.');
+
+	for(var index in broadcast)
+		broadcast[index] = (broadcast[index] ^ netmask[index]) | address[index];
+
+	return broadcast.join('.');
 }
 
 // Generate [0-9a-Z] random char
@@ -44,9 +54,12 @@ function messString(length) {
 	return str;
 }
 
+// Get hash
 function hash() {
 	var result = null;
-	var path = process.argv[1].substring(0, process.argv[1].length - 13) + 'uuid';
+	var path = process.argv[1].split('/');
+	path.pop();
+	path = '/' + path.join('/') + '/uuid';
 
 	if(fs.existsSync(path))
 		result = fs.readFileSync(path, null).toString();

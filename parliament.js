@@ -20,7 +20,14 @@ global.parliament = {
 	member: {}
 }
 
-console.log('Parliament Start');
+console.log('Parliament Start\n');
+console.log('Information --------------------');
+console.log('IP Address - ' + config.address);
+console.log('Broadcast  - ' + config.broadcast);
+console.log('TCP Port   - ' + config.tcp_port);
+console.log('UDP Port   - ' + config.udp_port);
+console.log('Node Hash  - ' + config.hash);
+console.log('--------------------------------\n');
 
 /**
  * TCP Server Handler
@@ -53,18 +60,20 @@ client.send(message, 0, message.length, config.udp_port, config.broadcast, funct
     client.close();
     
     console.log('Wait response: ' + config.wait + ' ms');
-    setTimeout(function() {		
-		if(!global.parliament.is_init && global.parliament.member != {}) {
-			global.parliament.is_init = true;
-			global.parliament.is_leader = true;
-			global.parliament.member[config.hash] = {
+    setTimeout(function() {
+    	var status = global.parliament;
+
+		if(!status.is_init && status.member != {}) {
+			status.is_init = true;
+			status.is_leader = true;
+			status.member[config.hash] = {
 				'role': 'leader',
 				'hash': config.hash,
 				'ip': config.address
 			}
 			
 			console.log('Set role: Leader');
-			console.log(global.parliament.member);
+			console.log(status.member);
 		}
     }, config.wait);
 });
@@ -75,13 +84,15 @@ client.send(message, 0, message.length, config.udp_port, config.broadcast, funct
  * if process catch SIGINT or Process Exit Event then Send Quit Commmd 
  */
 function sendQuit() {
-	global.parliament.is_quit = true;
+	var status = global.parliament;
+
+	status.is_quit = true;
 	
-	if(global.parliament.is_leader) {
-		var leader = '0.0.0.0';
-		for(var hash in global.parliament.member) {
-			if(global.parliament.member[hash]['role'] != 'leader') {
-				leader = global.parliament.member[hash]['ip'];
+	if(status.is_leader) {
+		var leader = null;
+		for(var hash in status.member) {
+			if(status.member[hash]['role'] != 'leader') {
+				leader = status.member[hash]['hash'];
 				break;
 			}
 		}
@@ -96,7 +107,7 @@ function sendQuit() {
 			'action': 'quit',
 			'hash': config.hash
 		}));
-	
+
 	// Send Command: Quit
 	var client = dgram.createSocket("udp4");
 	
@@ -115,14 +126,27 @@ function sendQuit() {
 	udp_server.stop();
 }
 
-// If process self exit
+// Catch process exit
 process.on('exit', function() {
 	if(!global.parliament.is_quit)
 		// Send Quit Command
 		sendQuit();
 });
 
-// If User pressed Ctrl-C
+// Catch process uncaught Exception
+// process.on('uncaughtException', function() {
+// 	if(!global.parliament.is_quit) {
+// 		// Send Quit Command	
+// 		sendQuit();
+	  	
+// 	  	// Wait N Second
+// 	  	setTimeout(function() {
+// 			process.exit(0);
+// 		}, config.wait);
+// 	}
+// });
+
+// Catch Ctrl-C
 process.on('SIGINT', function() {
 	if(!global.parliament.is_quit) {
 		// Send Quit Command	

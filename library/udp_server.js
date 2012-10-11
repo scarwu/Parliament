@@ -57,10 +57,6 @@ udp_server.on('message', function(message, remote) {
 				udp_server.send(message, 0, message.length, config.udp_port, config.broadcast);
 				console.log('Send Command: Refresh');
 			}
-			
-			// is not init, IP is true and hash is same
-			if(!status.is_init && remote.address in config.ip_list && data.hash == config.hash)
-				config.address = remote.address;
 			break;
 
 		// Accept new node join group

@@ -22,6 +22,10 @@ switch(process.argv[3]) {
 				'action': 'read',
 				'path': process.argv[4]
 			}));
+
+			setTimeout(function() {
+				client.end();
+			}, 1000);
 		});
 		
 		client.on('data', function(data) {
@@ -64,11 +68,13 @@ switch(process.argv[3]) {
 				client.close();
 			}, 2500);
 		});
+
 		client.on('message', function(buffer, remote) {
 			data = JSON.parse(buffer.toString());
 			if(data.status != undefined)
 				console.log(remote.address + ' is ' + data.status);
 		});
+
 		break;
 
 	// Sned Create
@@ -85,6 +91,10 @@ switch(process.argv[3]) {
 				'path': process.argv[4],
 				'src': process.argv[5]
 			}));
+
+			setTimeout(function() {
+				client.end();
+			}, 1000);
 		});
 		
 		client.on('data', function(data) {
@@ -107,6 +117,10 @@ switch(process.argv[3]) {
 				'action': 'backup',
 				'path': process.argv[4]
 			}));
+
+			setTimeout(function() {
+				client.end();
+			}, 1000);
 		});
 		
 		client.on('data', function(data) {
@@ -118,4 +132,3 @@ switch(process.argv[3]) {
 	default:
 		console.log('No command');
 }
-
