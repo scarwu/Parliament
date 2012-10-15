@@ -188,29 +188,20 @@ var tcp_server = net.createServer(function(socket) {
 					conn.closeSync();
 					
 					// Call anothor server backup file
-					var option = new Array();
+					var count = 0;
 					for(var index in status.member)
 						if(status.member[index].hash != config.hash) {
-							option.push({
+							assist.log('<-- TCP - Backup - IP: ' + status.member[index].ip);
+
+							//FIXME
+							sendBackup({
 								'port': config.tcp_port,
 								'host': status.member[index].ip
-							});
+							}, data.path);
+
+							if(++count >= config.backup)
+								break;
 						}
-
-					for(var index = 0;index < option.length;index++) {
-						assist.log('<-- TCP - Backup - IP: ' + status.member[index].ip);
-						var client = net.connect(option[index], function() {
-							client.write(JSON.stringify({
-								'action': 'backup',
-								'path': data.path
-							}));
-							// FIXME
-							client.end();
-						});
-
-						if(index >= config.backup)
-							break;
-					}
 				});
 				
 				break;
@@ -277,4 +268,15 @@ function start() {
 
 function stop() {
 	tcp_server.close();
+}
+
+function sendBackup(option, path) {
+	var client = net.connect(option, function() {
+		client.write(JSON.stringify({
+			'action': 'backup',
+			'path': path
+		}));
+
+		client.end();
+	});
 }

@@ -2,3 +2,4 @@
 .project
 node_modules
 uuid
+shared_folder
