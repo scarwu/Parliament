@@ -2,57 +2,14 @@
 
 var net = require('net');
 var dgram = require('dgram');
-var config = require('./config')
+var config = require('./config');
+var assist = require('./library/assist');
 
 // Check argv
 if(process.argv.length <= 3)
 	process.exit();
 
 switch(process.argv[3]) {
-	// Send read
-	case 'read':
-		if(process.argv.length <= 4)
-			process.exit();
-
-		var client = net.connect({
-			'port': config.tcp_port,
-			'host': process.argv[2]
-		}, function() {
-			client.write(JSON.stringify({
-				'action': 'read',
-				'path': process.argv[4]
-			}));
-
-			setTimeout(function() {
-				client.end();
-			}, 1000);
-		});
-		
-		client.on('data', function(data) {
-			console.log(data.toString());
-			client.end();
-		});
-		
-		break;
-
-	// Send list
-	case 'list':
-		var client = net.connect({
-			'port': config.tcp_port,
-			'host': process.argv[2]
-		}, function() {
-			client.write(JSON.stringify({
-				'action': 'list'
-			}));
-		});
-		
-		client.on('data', function(data) {
-			console.log(JSON.parse(data.toString()));
-			client.end();
-		});
-		
-		break;
-
 	// Send Heartbeat
 	case 'heartbeat':
 		var message = new Buffer(JSON.stringify({
@@ -77,11 +34,64 @@ switch(process.argv[3]) {
 
 		break;
 
+	// Send list
+	case 'list':
+		var timer = null;
+		var client = net.connect({
+			'port': config.tcp_port,
+			'host': process.argv[2]
+		}, function() {
+			client.write(JSON.stringify({
+				'action': 'list'
+			}));
+
+			timer = setTimeout(function() {
+				client.end();
+			}, 1000);
+		});
+		
+		client.on('data', function(data) {
+			assist.list_member(JSON.parse(data.toString()));
+			client.end();
+			clearTimeout(timer);
+		});
+		
+		break;
+
+	// Send read
+	case 'read':
+		if(process.argv.length <= 4)
+			process.exit();
+
+		var timer = null;
+		var client = net.connect({
+			'port': config.tcp_port,
+			'host': process.argv[2]
+		}, function() {
+			client.write(JSON.stringify({
+				'action': 'read',
+				'path': process.argv[4]
+			}));
+
+			timer = setTimeout(function() {
+				client.end();
+			}, 1000);
+		});
+		
+		client.on('data', function(data) {
+			console.log(data.toString());
+			clearTimeout(timer);
+			client.end();
+		});
+		
+		break;
+		
 	// Sned Create
 	case 'create':
 		if(process.argv.length <= 5)
 			process.exit();
 
+		var timer = null;
 		var client = net.connect({
 			'port': config.tcp_port,
 			'host': process.argv[2]
@@ -91,14 +101,7 @@ switch(process.argv[3]) {
 				'path': process.argv[4],
 				'src': process.argv[5]
 			}));
-
-			setTimeout(function() {
-				client.end();
-			}, 1000);
-		});
-		
-		client.on('data', function(data) {
-			console.log(data.toString());
+			
 			client.end();
 		});
 
@@ -109,6 +112,7 @@ switch(process.argv[3]) {
 		if(process.argv.length <= 4)
 			process.exit();
 
+		var timer = null;
 		var client = net.connect({
 			'port': config.tcp_port,
 			'host': process.argv[2]
@@ -118,17 +122,30 @@ switch(process.argv[3]) {
 				'path': process.argv[4]
 			}));
 
-			setTimeout(function() {
-				client.end();
-			}, 1000);
-		});
-		
-		client.on('data', function(data) {
-			console.log(data.toString());
 			client.end();
 		});
 
 		break;
+
+	// Send Delete
+	case 'delete':
+		if(process.argv.length <= 4)
+			process.exit();
+
+		var client = net.connect({
+			'port': config.tcp_port,
+			'host': process.argv[2]
+		}, function() {
+			client.write(JSON.stringify({
+				'action': 'delete',
+				'path': process.argv[4]
+			}));
+
+			client.end();
+		});
+
+		break;
+
 	default:
 		console.log('No command');
 }

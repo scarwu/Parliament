@@ -15,17 +15,23 @@ exports.address = assist.getAddress('eth0');
 // Broadcast 
 exports.broadcast = assist.getBroadcast('eth0', '255.255.255.0');
 
-// Join / Quit Group Wait Time
+// Join / Quit Group Waiting
 exports.wait = 500;
 
-// Files Backup Amount
-exports.backup = 1;
+// Heartbeat Interval
+exports.heartbeat = 60000; // 1 min
+
+// File Backup
+exports.backup = 2;
+
+// File Name Length
+exports.name_length = 32
 
 // Datanode ID
 exports.hash = assist.hash();
 
 // DFS Target Directory
-exports.target = '/rnfs_shared';
+exports.target = './shared_folder';
 
 // Database Config
 exports.db = {

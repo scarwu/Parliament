@@ -10,13 +10,14 @@ var mysql = require('mysql-libmysqlclient');
 
 // Require custom module
 var config = require('../config');
+var assist = require('./assist');
 
 // Module Exports
 exports.start = start;
 exports.stop = stop;
 
 // File system extend
-fs.copy = function (src, dst, callback) {
+fs.copy = function(src, dst, callback) {
 	function copy(error) {
 		var input_stream;
 		var output_stream;
@@ -51,31 +52,55 @@ var tcp_server = net.createServer(function(socket) {
 		switch(data.action) {
 			// List server status
 			case 'list':
+				assist.log('--> TCP - List');
 				socket.write(JSON.stringify(status.member));
 				socket.pipe(socket);
 				break;
 
 			// Delete file
 			case 'delete':
+				socket.end();
+
 				var path = config.target + data.path;
-				var conn = mysql.createConnectionSync();
-				conn.connectSync(config.db.host, config.db.user, config.db.pass, config.db.name, config.db.port);
 
-				if(fs.existsSync(path)) {
-					fs.unlink(path);
+				if(fs.existsSync(path))
+					fs.unlink(path, function(error) {
+						if(error) {
+							socket.end();
+							return false;
+						}
 
+						assist.log('--> TCP - Delete - File: ' + data.path);
 
+						var conn = mysql.createConnectionSync();
+						conn.connectSync(config.db.host, config.db.user, config.db.pass, config.db.name, config.db.port);
 
-					if(conn.connectedSync())
+						var sql = 'SELECT entity FROM relation WHERE path="' + data.path + '"';
+						var entity = conn.querySync(sql).fetchAllSync()[0]['entity'].split('|');
+
+						for(var index in entity)
+							if(entity[index] == config.hash)
+								delete entity[index];
+
+						if(entity.length == 0)
+							var sql = 'DELETE FORM relation WHERE path="' + data.path + '"';
+						else
+							var sql = 'UPDATE relation SET entity="' + entity.join('|') + '" WHERE path="' + data.path + '"';
+
+						assist.log(sql);
+
+						conn.querySync(sql);
 						conn.closeSync();
-				}
+					});
 				break;
 
 			// Backup file
 			case 'backup':
+				socket.end();
+
 				var path = config.target + data.path;
 
-				console.log('Command Backup: ' + data.path);
+				assist.log('--> TCP - Backup - File: ' + data.path);
 
 				// Send Command: Read
 				var client = net.connect({
@@ -86,62 +111,97 @@ var tcp_server = net.createServer(function(socket) {
 						'action': 'read',
 						'path': data.path
 					}));
+					assist.log('<-- TCP - Backup - Read - File: ' + data.path);
 				});
 				
 				client.on('data', function(file) {
+					if(!fs.existsSync(path))
+						fs.writeFile(path, file, function(error) {
+							if(error) {
+								socket.end();
+								fs.unlinkSync(path);
+								return false;
+							}
+						});
+					else
+						fs.appendFile(path, file, function(error) {
+							if(error) {
+								socket.end();
+								fs.unlinkSync(path);
+								return false;
+							}
+						});
+				});
 
-					fs.writeFile(path, file, function(error) {
+				client.on('end', function() {
+					if(fs.existsSync(path)) {
+						assist.log('=== TCP - Backup - Database write-back: ' + data.path);
+
 						var conn = mysql.createConnectionSync();
 						conn.connectSync(config.db.host, config.db.user, config.db.pass, config.db.name, config.db.port);
 
 						var sql = 'SELECT entity FROM relation WHERE path="' + data.path + '"';
-						var entity = conn.querySync(sql).fetchAllSync()[0]['entity'] + '|' + config.hash;
+						var entity = conn.querySync(sql).fetchAllSync()[0]['entity'].split('|');
+						var is_exists = false;
 
-						var sql = 'UPDATE relation SET entity="' + entity + '" WHERE path="' + data.path + '"';
-						conn.query(sql);
+						for(var hash in entity)
+							if(hash == config.hash)
+								is_exists = true;
 
-						client.end();
-					});
+						if(!is_exists)
+							entity.push(config.hash);
 
+						var sql = 'UPDATE relation SET entity="' + entity.join('|') + '" WHERE path="' + data.path + '"';
+						conn.querySync(sql);
+						conn.closeSync();
+					}
 				});
 
 				break;
 
 			// Create file
 			case 'create':
+				socket.end();
+
 				var path = config.target + data.path;
-				var conn = mysql.createConnectionSync();
-				conn.connectSync(config.db.host, config.db.user, config.db.pass, config.db.name, config.db.port);
 
-				console.log('Command Create: ' + data.path);
+				assist.log('--> TCP - Create - File: ' + data.path);
 
-				if(fs.existsSync(path))
-					fs.unlink(path);
+				if(fs.existsSync(path)) {
+					socket.end();
+					return false;
+				}
 
 				fs.copy(data.src, path, function(error) {
-					if(!error) {
-						var sql = 'INSERT INTO relation (path, entity) VALUES ("' + data.path + '", "' + config.hash + '");';
-						conn.query(sql);
-						
-						// Call anothor server backup file
-						var count = 0;
-						for(var hash in status.member)
-							if(hash != config.hash) {
-								var client = net.connect({
-									'port': config.tcp_port,
-									'host': status.member[hash]['ip']
-								}, function() {
-									client.write(JSON.stringify({
-										'action': 'backup',
-										'path': data.path
-									}));
-									client.end();
-								});
-
-								if(++count >= config.backup)
-									break;
-							}
+					if(error) {
+						socket.end();
+						return false;
 					}
+
+					assist.log('=== TCP - Create - Database write-back: ' + data.path);
+
+					var conn = mysql.createConnectionSync();
+					conn.connectSync(config.db.host, config.db.user, config.db.pass, config.db.name, config.db.port);
+
+					var sql = 'INSERT INTO relation (path, entity) VALUES ("' + data.path + '", "' + config.hash + '");';
+					conn.querySync(sql);
+					conn.closeSync();
+					
+					// Call anothor server backup file
+					var count = 0;
+					for(var index in status.member)
+						if(status.member[index].hash != config.hash) {
+							assist.log('<-- TCP - Backup - IP: ' + status.member[index].ip);
+
+							//FIXME
+							sendBackup({
+								'port': config.tcp_port,
+								'host': status.member[index].ip
+							}, data.path);
+
+							if(++count >= config.backup)
+								break;
+						}
 				});
 				
 				break;
@@ -150,23 +210,33 @@ var tcp_server = net.createServer(function(socket) {
 			case 'read':
 				var path = config.target + data.path;
 
-				console.log('Command Read: ' + data.path);
+				assist.log('--> TCP - Read - File: ' + data.path);
 
 				if(fs.existsSync(path))
-					fs.readFile(path, null, function(error, data) {
-						socket.write(data);
+					fs.readFile(path, null, function(error, file) {
+						if(error) {
+							socket.end();
+							return false;
+						}
+
+						socket.write(file);
 						socket.pipe(socket);
+						socket.end();
 					});
 				else {
+					assist.log('<-- TCP - Read - Read - File: ' + data.path);
+
 					var conn = mysql.createConnectionSync();
 					conn.connectSync(config.db.host, config.db.user, config.db.pass, config.db.name, config.db.port);
 
 					var sql = 'SELECT entity FROM relation WHERE path="' + data.path + '"';
 					var entity = conn.querySync(sql).fetchAllSync()[0]['entity'].split('|');
 
+					conn.closeSync();
+
 					var client = net.connect({
 						'port': config.tcp_port,
-						'host': status.member[entity[0]]['ip']
+						'host': status.member[entity[0]].ip
 					}, function() {
 						client.write(JSON.stringify({
 							'action': 'read',
@@ -182,7 +252,7 @@ var tcp_server = net.createServer(function(socket) {
 				break;
 
 			default:
-				console.log('Undefined command.');
+				assist.log('Undefined command.');
 		}
 	});
 	
@@ -198,4 +268,15 @@ function start() {
 
 function stop() {
 	tcp_server.close();
+}
+
+function sendBackup(option, path) {
+	var client = net.connect(option, function() {
+		client.write(JSON.stringify({
+			'action': 'backup',
+			'path': path
+		}));
+
+		client.end();
+	});
 }
