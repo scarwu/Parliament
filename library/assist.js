@@ -9,6 +9,8 @@ exports.messString = messString;
 exports.hash = hash;
 exports.getAddress = getAddress;
 exports.getBroadcast = getBroadcast;
+exports.list_member = list_member;
+exports.log = log;
 
 // Get IP Address
 function getAddress(device_name) {
@@ -69,4 +71,19 @@ function hash() {
 	}
 
 	return result;
+}
+
+function log(output) {
+	var date = new Date();
+	console.log('[%s] %s', date.toTimeString(), output);
+}
+
+function list_member(member) {
+	log('');
+	log('Node Member List');
+	for(var index in member) {
+		var output = member[index].is_leader ? 'Leader - ' : 'Member - ';
+		log(output + member[index].hash + ' (' + member[index].ip + ')');
+	}
+	log('');
 }

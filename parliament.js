@@ -4,11 +4,13 @@
 
 // Require module
 var os = require('os');
+var fs = require('fs');
 var net = require('net');
 var dgram = require('dgram');
 
 // Require custom module
 var config = require('./config');
+var assist = require('./library/assist');
 var tcp_server = require('./library/tcp_server');
 var udp_server = require('./library/udp_server');
 
@@ -21,13 +23,16 @@ global.parliament = {
 }
 
 console.log('Parliament Start\n');
-console.log('Information --------------------');
 console.log('IP Address - ' + config.address);
 console.log('Broadcast  - ' + config.broadcast);
 console.log('TCP Port   - ' + config.tcp_port);
 console.log('UDP Port   - ' + config.udp_port);
 console.log('Node Hash  - ' + config.hash);
-console.log('--------------------------------\n');
+console.log('');
+
+// Make directory
+if(!fs.existsSync(config.target))
+	fs.mkdirSync(config.target);
 
 /**
  * TCP Server Handler
@@ -56,10 +61,10 @@ var client = dgram.createSocket("udp4");
 client.bind(config.udp_port);
 client.setBroadcast(true);
 client.send(message, 0, message.length, config.udp_port, config.broadcast, function(error, bytes) {
-    console.log('Send Command: Join');
+    assist.log('<-- UDP - Join');
     client.close();
     
-    console.log('Wait response: ' + config.wait + ' ms');
+    assist.log('<-- UDP - Join - Wait response: ' + config.wait + ' ms');
     setTimeout(function() {
     	var status = global.parliament;
 
@@ -67,13 +72,13 @@ client.send(message, 0, message.length, config.udp_port, config.broadcast, funct
 			status.is_init = true;
 			status.is_leader = true;
 			status.member[config.hash] = {
-				'role': 'leader',
+				'is_leader': true,
 				'hash': config.hash,
 				'ip': config.address
 			}
 			
-			console.log('Set role: Leader');
-			console.log(status.member);
+			assist.log('<-- UDP - Join - Set role: Leader');
+			assist.list_member(status.member);
 		}
     }, config.wait);
 });
@@ -90,9 +95,9 @@ function sendQuit() {
 	
 	if(status.is_leader) {
 		var leader = null;
-		for(var hash in status.member) {
-			if(status.member[hash]['role'] != 'leader') {
-				leader = status.member[hash]['hash'];
+		for(var index in status.member) {
+			if(!status.member[index].is_leader) {
+				leader = status.member[index].hash;
 				break;
 			}
 		}
@@ -117,7 +122,7 @@ function sendQuit() {
 		if(error)
 	    	throw error;
 	    	
-	    console.log('Send Command: Quit');
+	    assist.log('<-- UDP - Quit');
 	    client.close();
 	});
 	
@@ -134,19 +139,19 @@ process.on('exit', function() {
 });
 
 // Catch process uncaught Exception
-process.on('uncaughtException', function(except) {
-	console.log(except);
+// process.on('uncaughtException', function(except) {
+// 	assist.log(except);
 
-	if(!global.parliament.is_quit) {
-		// Send Quit Command	
-		sendQuit();
+// 	if(!global.parliament.is_quit) {
+// 		// Send Quit Command	
+// 		sendQuit();
 	  	
-	  	// Wait N Second
-	  	setTimeout(function() {
-			process.exit(1);
-		}, config.wait);
-	}
-});
+// 	  	// Wait N Second
+// 	  	setTimeout(function() {
+// 			process.exit(1);
+// 		}, config.wait);
+// 	}
+// });
 
 // Catch Ctrl-C
 process.on('SIGINT', function() {
