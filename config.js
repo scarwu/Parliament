@@ -22,7 +22,7 @@ exports.wait = 500;
 exports.heartbeat = 60000; // 1 min
 
 // File Backup
-exports.backup = 2;
+exports.backup = 1;
 
 // File Name Length
 exports.name_length = 32

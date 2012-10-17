@@ -77,13 +77,46 @@ switch(process.argv[3]) {
 				client.end();
 			}, 1000);
 		});
-		
+
 		client.on('data', function(data) {
 			console.log(data.toString());
 			clearTimeout(timer);
-			client.end();
+		});
+		break;
+
+	// Send read
+	case 'test':
+		if(process.argv.length <= 4)
+			process.exit();
+
+		var timer = null;
+		var client = net.connect({
+			'port': config.tcp_port,
+			'host': process.argv[2]
+		}, function() {
+			client.write(JSON.stringify({
+				'action': 'read',
+				'path': process.argv[4]
+			}));
+
+			timer = setTimeout(function() {
+				client.end();
+			}, 1000);
 		});
 		
+		var size_count = 0;
+		var callback_count = 0;
+		client.on('data', function(data) {
+			size_count += data.length;
+			callback_count++;
+			clearTimeout(timer);
+		});
+		
+		client.on('end', function() {
+			console.log('Callback: ' + callback_count + ' times');
+			console.log('Filesize: ' + size_count + ' bytes');
+		});
+
 		break;
 		
 	// Sned Create

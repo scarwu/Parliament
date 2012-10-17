@@ -22,12 +22,12 @@ fs.copy = function(src, dst, callback) {
 		var input_stream;
 		var output_stream;
 
-		if (!error) {
+		if(!error) {
 			return callback(new Error("File " + dst + " exists."));
 		}
 
 		fs.stat(src, function (error) {
-			if (error)
+			if(error)
 				return callback(error);
 
 			input_stream = fs.createReadStream(src);
@@ -54,7 +54,6 @@ var tcp_server = net.createServer(function(socket) {
 			case 'list':
 				assist.log('--> TCP - List');
 				socket.write(JSON.stringify(status.member));
-				socket.pipe(socket);
 				break;
 
 			// Delete file
@@ -79,8 +78,11 @@ var tcp_server = net.createServer(function(socket) {
 						var entity = conn.querySync(sql).fetchAllSync()[0]['entity'].split('|');
 
 						for(var index in entity)
-							if(entity[index] == config.hash)
+							if(entity[index] == config.hash) {
 								delete entity[index];
+								entity.sort();
+								entity.pop();
+							}
 
 						if(entity.length == 0)
 							var sql = 'DELETE FORM relation WHERE path="' + data.path + '"';
@@ -114,7 +116,10 @@ var tcp_server = net.createServer(function(socket) {
 					assist.log('<-- TCP - Backup - Read - File: ' + data.path);
 				});
 				
+				var size_count = 0;
 				client.on('data', function(file) {
+					size_count += file.length;
+
 					if(!fs.existsSync(path))
 						fs.writeFile(path, file, function(error) {
 							if(error) {
@@ -135,6 +140,7 @@ var tcp_server = net.createServer(function(socket) {
 
 				client.on('end', function() {
 					if(fs.existsSync(path)) {
+						assist.log('=== TCP - Backup - Read - File Size: ' + size_count + ' bytes');
 						assist.log('=== TCP - Backup - Database write-back: ' + data.path);
 
 						var conn = mysql.createConnectionSync();
@@ -210,19 +216,24 @@ var tcp_server = net.createServer(function(socket) {
 			case 'read':
 				var path = config.target + data.path;
 
-				assist.log('--> TCP - Read - File: ' + data.path);
+				assist.log('--> TCP - Read');
 
-				if(fs.existsSync(path))
+				var size_count = 0;
+				if(fs.existsSync(path)) {
+					assist.log('<-- TCP - Read - File: ' + data.path);
+
 					fs.readFile(path, null, function(error, file) {
 						if(error) {
 							socket.end();
 							return false;
 						}
 
+						size_count += file.length;
+
 						socket.write(file);
-						socket.pipe(socket);
 						socket.end();
 					});
+				}
 				else {
 					assist.log('<-- TCP - Read - Read - File: ' + data.path);
 
@@ -243,21 +254,25 @@ var tcp_server = net.createServer(function(socket) {
 							'path': data.path
 						}));
 					});
-					
+
 					client.on('data', function(file) {
+						size_count += file.length;
 						socket.write(file);
-						socket.pipe(socket);
+					});
+
+					client.on('end', function() {
+						socket.end();
 					});
 				}
+
+				socket.on('end', function() {
+					assist.log('=== TCP - Read - File Size: ' + size_count + ' bytes');
+				});
 				break;
 
 			default:
 				assist.log('Undefined command.');
 		}
-	});
-	
-	socket.on('error', function() {
-		
 	});
 	
 });
