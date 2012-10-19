@@ -61,10 +61,10 @@ var client = dgram.createSocket("udp4");
 client.bind(config.udp_port);
 client.setBroadcast(true);
 client.send(message, 0, message.length, config.udp_port, config.broadcast, function(error, bytes) {
-    assist.log('<-- UDP - Join');
+    assist.log('<-- UDP: Join');
     client.close();
     
-    assist.log('<-- UDP - Join - Wait response: ' + config.wait + ' ms');
+    assist.log('<-- UDP: Join - Wait response: ' + config.wait + ' ms');
     setTimeout(function() {
     	var status = global.parliament;
 
@@ -77,13 +77,13 @@ client.send(message, 0, message.length, config.udp_port, config.broadcast, funct
 				'ip': config.address
 			}
 			
-			assist.log('<-- UDP - Join - Set role: Leader');
+			assist.log('<-- UDP: Join - Set role: Leader');
 			assist.list_member(status.member);
 
 			// Send Heartbeat
-			assist.log('=== UDP - Heartbeat - Start');
+			assist.log('=== UDP: Heartbeat - Start');
 			status.heartbeat_timer = setInterval(function() {
-				assist.log('<-- UDP - Heartbeat');
+				assist.log('<-- UDP: Heartbeat');
 
 				var message = new Buffer(JSON.stringify({
 					'action': 'heartbeat'
@@ -102,7 +102,7 @@ client.send(message, 0, message.length, config.udp_port, config.broadcast, funct
 				client.on('message', function(buffer, remote) {
 					var data = JSON.parse(buffer.toString());
 					if(data.status != undefined)
-						assist.log('--> UDP - Heartbeat - Msg: ' + remote.address + ' is ' + data.status);
+						assist.log('--> UDP: Heartbeat - Msg: ' + remote.address + ' ' + data.status);
 				});
 			}, config.heartbeat);
 		}
@@ -148,7 +148,7 @@ function sendQuit() {
 		if(error)
 	    	throw error;
 	    	
-	    assist.log('<-- UDP - Quit');
+	    assist.log('<-- UDP: Quit');
 	    client.close();
 	});
 	

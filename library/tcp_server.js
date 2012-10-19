@@ -52,7 +52,7 @@ var tcp_server = net.createServer(function(socket) {
 		switch(data.action) {
 			// List server status
 			case 'list':
-				assist.log('--> TCP - List');
+				assist.log('--> TCP: List');
 				socket.write(JSON.stringify(status.member));
 				break;
 
@@ -69,7 +69,7 @@ var tcp_server = net.createServer(function(socket) {
 							return false;
 						}
 
-						assist.log('--> TCP - Delete - File: ' + data.path);
+						assist.log('--> TCP: Delete - File: ' + data.path);
 
 						var conn = mysql.createConnectionSync();
 						conn.connectSync(config.db.host, config.db.user, config.db.pass, config.db.name, config.db.port);
@@ -102,7 +102,7 @@ var tcp_server = net.createServer(function(socket) {
 
 				var path = config.target + data.path;
 
-				assist.log('--> TCP - Backup - File: ' + data.path);
+				assist.log('--> TCP: Backup - File: ' + data.path);
 
 				// Send Command: Read
 				var client = net.connect({
@@ -113,7 +113,7 @@ var tcp_server = net.createServer(function(socket) {
 						'action': 'read',
 						'path': data.path
 					}));
-					assist.log('<-- TCP - Backup - Read - File: ' + data.path);
+					assist.log('<-- TCP: Backup - Read - File: ' + data.path);
 				});
 				
 				var size_count = 0;
@@ -140,8 +140,8 @@ var tcp_server = net.createServer(function(socket) {
 
 				client.on('end', function() {
 					if(fs.existsSync(path)) {
-						assist.log('=== TCP - Backup - Read - File Size: ' + size_count + ' bytes');
-						assist.log('=== TCP - Backup - Database write-back: ' + data.path);
+						assist.log('=== TCP: Backup - Read - File Size: ' + size_count + ' bytes');
+						assist.log('=== TCP: Backup - Database write-back: ' + data.path);
 
 						var conn = mysql.createConnectionSync();
 						conn.connectSync(config.db.host, config.db.user, config.db.pass, config.db.name, config.db.port);
@@ -171,7 +171,7 @@ var tcp_server = net.createServer(function(socket) {
 
 				var path = config.target + data.path;
 
-				assist.log('--> TCP - Create - File: ' + data.path);
+				assist.log('--> TCP: Create - File: ' + data.path);
 
 				if(fs.existsSync(path)) {
 					socket.end();
@@ -184,7 +184,7 @@ var tcp_server = net.createServer(function(socket) {
 						return false;
 					}
 
-					assist.log('=== TCP - Create - Database write-back: ' + data.path);
+					assist.log('=== TCP: Create - Database write-back: ' + data.path);
 
 					var conn = mysql.createConnectionSync();
 					conn.connectSync(config.db.host, config.db.user, config.db.pass, config.db.name, config.db.port);
@@ -197,7 +197,7 @@ var tcp_server = net.createServer(function(socket) {
 					var count = 0;
 					for(var index in status.member)
 						if(status.member[index].hash != config.hash) {
-							assist.log('<-- TCP - Backup - IP: ' + status.member[index].ip);
+							assist.log('<-- TCP: Backup - IP: ' + status.member[index].ip);
 
 							//FIXME
 							sendBackup({
@@ -216,11 +216,11 @@ var tcp_server = net.createServer(function(socket) {
 			case 'read':
 				var path = config.target + data.path;
 
-				assist.log('--> TCP - Read');
+				assist.log('--> TCP: Read');
 
 				var size_count = 0;
 				if(fs.existsSync(path)) {
-					assist.log('<-- TCP - Read - File: ' + data.path);
+					assist.log('<-- TCP: Read - File: ' + data.path);
 
 					fs.readFile(path, null, function(error, file) {
 						if(error) {
@@ -235,7 +235,7 @@ var tcp_server = net.createServer(function(socket) {
 					});
 				}
 				else {
-					assist.log('<-- TCP - Read - Read - File: ' + data.path);
+					assist.log('<-- TCP: Read - Read - File: ' + data.path);
 
 					var conn = mysql.createConnectionSync();
 					conn.connectSync(config.db.host, config.db.user, config.db.pass, config.db.name, config.db.port);
@@ -266,7 +266,7 @@ var tcp_server = net.createServer(function(socket) {
 				}
 
 				socket.on('end', function() {
-					assist.log('=== TCP - Read - File Size: ' + size_count + ' bytes');
+					assist.log('=== TCP: Read - File Size: ' + size_count + ' bytes');
 				});
 				break;
 
