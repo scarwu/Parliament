@@ -8,8 +8,11 @@ var fs = require('fs');
 var net = require('net');
 var dgram = require('dgram');
 
+var mysql = require('mysql-libmysqlclient');
+
 // Require custom module
 var config = require('./config');
+var initdb = require('./library/initdb');
 var assist = require('./library/assist');
 var tcp_server = require('./library/tcp_server');
 var udp_server = require('./library/udp_server');
@@ -34,11 +37,16 @@ console.log('Node Hash  - ' + config.hash + '\n');
 if(!fs.existsSync(config.target))
 	fs.mkdirSync(config.target);
 
+// Initialize Database
+assist.log('=== SYS: Initialize Database');
+initdb.start();
+
 /**
  * TCP Server Handler
  * 
  * Listening port 6000
  */
+assist.log('=== SYS: Start TCP Server');
 tcp_server.start();
 
 /**
@@ -46,6 +54,7 @@ tcp_server.start();
  * 
  * Listening port 6001
  */
+assist.log('=== SYS: Start UDP Server');
 udp_server.start();
 
 /**

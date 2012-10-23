@@ -60,7 +60,7 @@ var tcp_server = net.createServer(function(socket) {
 			case 'delete':
 				socket.end();
 
-				var path = config.target + data.path;
+				var path = config.target + '/' +  data.path.replace('/', '');
 
 				if(fs.existsSync(path))
 					fs.unlink(path, function(error) {
@@ -74,33 +74,40 @@ var tcp_server = net.createServer(function(socket) {
 						var conn = mysql.createConnectionSync();
 						conn.connectSync(config.db.host, config.db.user, config.db.pass, config.db.name, config.db.port);
 
-						var sql = 'SELECT entity FROM relation WHERE path="' + data.path + '"';
-						var entity = conn.querySync(sql).fetchAllSync()[0]['entity'].split('|');
-
-						for(var index in entity)
-							if(entity[index] == config.hash) {
-								delete entity[index];
-								entity.sort();
-								entity.pop();
-							}
-
-						if(entity.length == 0)
-							var sql = 'DELETE FORM relation WHERE path="' + data.path + '"';
-						else
-							var sql = 'UPDATE relation SET entity="' + entity.join('|') + '" WHERE path="' + data.path + '"';
+						// Update Database
+						var sql = 'UPDATE relation SET entity_' + config.hash + '=0 WHERE unique_id"' + data.path + '"';
+						conn.querySync(sql);
 
 						assist.log(sql);
 
-						conn.querySync(sql);
+						// Compare DB table and Member List
+						var sql = 'SELECT * FROM relation WHERE unique_id"' + data.path + '"';
+						var result = conn.querySync(sql).fetchAllSync()[0];
+
+						var count = 0;
+						var regex = /^entity_(\w+)/;
+						for(var index in result) {
+							if(index.match(regex) && regex.exec(index)[1] in status.member)
+								count += result[index];
+						}
+
+						if(count == 0) {
+							var sql = 'DELETE FORM relation WHERE unique_id"' + data.path + '"';
+							conn.querySync(sql);
+
+							assist.log(sql);
+						}
+
 						conn.closeSync();
 					});
+
 				break;
 
 			// Backup file
 			case 'backup':
 				socket.end();
 
-				var path = config.target + data.path;
+				var path = config.target + '/' +  data.path.replace('/', '');
 
 				assist.log('--> TCP: Backup - File: ' + data.path);
 
@@ -146,18 +153,7 @@ var tcp_server = net.createServer(function(socket) {
 						var conn = mysql.createConnectionSync();
 						conn.connectSync(config.db.host, config.db.user, config.db.pass, config.db.name, config.db.port);
 
-						var sql = 'SELECT entity FROM relation WHERE path="' + data.path + '"';
-						var entity = conn.querySync(sql).fetchAllSync()[0]['entity'].split('|');
-						var is_exists = false;
-
-						for(var hash in entity)
-							if(hash == config.hash)
-								is_exists = true;
-
-						if(!is_exists)
-							entity.push(config.hash);
-
-						var sql = 'UPDATE relation SET entity="' + entity.join('|') + '" WHERE path="' + data.path + '"';
+						var sql = 'UPDATE relation SET entity_' + config.hash + '=1 WHERE unique_id"' + data.path + '"';
 						conn.querySync(sql);
 						conn.closeSync();
 					}
@@ -169,7 +165,7 @@ var tcp_server = net.createServer(function(socket) {
 			case 'create':
 				socket.end();
 
-				var path = config.target + data.path;
+				var path = config.target + '/' +  data.path.replace('/', '');
 
 				assist.log('--> TCP: Create - File: ' + data.path);
 
@@ -189,7 +185,7 @@ var tcp_server = net.createServer(function(socket) {
 					var conn = mysql.createConnectionSync();
 					conn.connectSync(config.db.host, config.db.user, config.db.pass, config.db.name, config.db.port);
 
-					var sql = 'INSERT INTO relation (path, entity) VALUES ("' + data.path + '", "' + config.hash + '");';
+					var sql = 'INSERT INTO relation (path, entity_' + config.hash + ') VALUES ("' + data.path + '", 1)';
 					conn.querySync(sql);
 					conn.closeSync();
 					
@@ -214,7 +210,7 @@ var tcp_server = net.createServer(function(socket) {
 
 			// Read file
 			case 'read':
-				var path = config.target + data.path;
+				var path = config.target + '/' +  data.path.replace('/', '');
 
 				assist.log('--> TCP: Read');
 
@@ -240,14 +236,24 @@ var tcp_server = net.createServer(function(socket) {
 					var conn = mysql.createConnectionSync();
 					conn.connectSync(config.db.host, config.db.user, config.db.pass, config.db.name, config.db.port);
 
-					var sql = 'SELECT entity FROM relation WHERE path="' + data.path + '"';
-					var entity = conn.querySync(sql).fetchAllSync()[0]['entity'].split('|');
+					var sql = 'SELECT * FROM relation WHERE unique_id"' + data.path + '"';
+					var result = conn.querySync(sql).fetchAllSync()[0];
 
 					conn.closeSync();
 
+					// Compare DB table and Member List
+					var entity_list = new Array();
+					var regex = /^entity_(\w+)/;
+					for(var index in result) {
+						if(index.match(regex) && result[index] != 0 && regex.exec(index)[1] in status.member)
+							entity_list.push(regex.exec(index)[1]);
+					}
+
+					console.log(entity_list);
+
 					var client = net.connect({
 						'port': config.tcp_port,
-						'host': status.member[entity[0]].ip
+						'host': status.member[entity_list[parseInt(Math.random() * entity_list.length)]].ip // Random Select Entity (Fixme)
 					}, function() {
 						client.write(JSON.stringify({
 							'action': 'read',
