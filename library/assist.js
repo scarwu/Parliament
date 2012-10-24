@@ -75,15 +75,13 @@ function hash() {
 
 function log(output) {
 	var date = new Date();
-	console.log('[%s] %s', date.toTimeString(), output);
+	var role = global.parliament.is_leader ? 'Leader' : 'Member';
+	console.log('[%s] %s: %s', date.toTimeString().substr(0, 8), role, output);
 }
 
 function list_member(member) {
-	log('');
-	log('Node Member List');
 	for(var index in member) {
-		var output = member[index].is_leader ? 'Leader - ' : 'Member - ';
-		log(output + member[index].hash + ' (' + member[index].ip + ')');
+		var output = member[index].is_leader ? 'Leader: ' : 'Member: ';
+		log('=== SYS: ' + output + member[index].hash + ' (' + member[index].ip + ')');
 	}
-	log('');
 }

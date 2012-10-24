@@ -22,13 +22,15 @@ udp_server.on('message', function(message, remote) {
 	switch(data.action) {
 		// Check server is alive or not
 		case 'heartbeat':
-			if(!status.is_init)
+			if(!status.is_init || remote.address == config.address)
 				return false;
 
-			assist.log('--> UDP - Heartbeat');
+			assist.log('--> UDP: Heartbeat');
+			assist.log('<-- UDP: Heartbeat - Status: Alive');
 
 			var message = new Buffer(JSON.stringify({
-				'status': 'alive'
+				'status': 'alive',
+				'hash': config.hash
 			}));
 			udp_server.send(message, 0, message.length, config.udp_port, remote.address);
 			break;
@@ -39,7 +41,7 @@ udp_server.on('message', function(message, remote) {
 			if(!status.is_init || !status.is_leader)
 				return false;;
 
-			assist.log('--> UDP - Join');
+			assist.log('--> UDP: Join');
 
 			status.member[data.hash] = {
 				'is_leader': false,
@@ -54,7 +56,7 @@ udp_server.on('message', function(message, remote) {
 				'member': status.member
 			}));
 			udp_server.send(message, 0, message.length, config.udp_port, remote.address);
-			assist.log('<-- UDP - Join - Accept');
+			assist.log('<-- UDP: Join - Accept');
 			
 			// Send Command: Refresh
 			var message = new Buffer(JSON.stringify({
@@ -64,9 +66,9 @@ udp_server.on('message', function(message, remote) {
 			}));
 			udp_server.setBroadcast(true);
 			udp_server.send(message, 0, message.length, config.udp_port, config.broadcast);
-			assist.log('<-- UDP - Join - Refresh');
+			assist.log('<-- UDP: Join - Refresh');
 
-			assist.log('=== UDP - Join - IP: ' + remote.address);
+			assist.log('=== UDP: Join - IP: ' + remote.address);
 			assist.list_member(status.member);
 
 			break;
@@ -80,8 +82,8 @@ udp_server.on('message', function(message, remote) {
 			status.is_init = true;
 			status.member = data.member;
 
-			assist.log('--> UDP - Accept');
-			assist.log('--> UDP - Accept - Set role: Member');
+			assist.log('--> UDP: Accept');
+			assist.log('--> UDP: Accept - Set role: Member');
 			assist.list_member(status.member);
 
 			break;
@@ -94,10 +96,10 @@ udp_server.on('message', function(message, remote) {
 
 			delete status.member[data.hash];
 			
-			assist.log('--> UDP - Quit');
+			assist.log('--> UDP: Quit');
 
 			if(data.leader == config.hash) {
-				assist.log('--> UDP - Quit - Set role: Leader');
+				assist.log('--> UDP: Quit - Set role: Leader');
 
 				status.is_leader = true;
 				status.member[config.hash].is_leader = true;
@@ -110,10 +112,36 @@ udp_server.on('message', function(message, remote) {
 				}));
 				udp_server.setBroadcast(true);
 				udp_server.send(message, 0, message.length, config.udp_port, config.broadcast);
-				assist.log('<-- UDP - Quit - Refresh');
+				assist.log('<-- UDP: Quit - Refresh');
+
+				// Send Heartbeat
+				assist.log('=== UDP: Heartbeat - Start');
+				status.heartbeat_timer = setInterval(function() {
+					assist.log('<-- UDP: Heartbeat');
+
+					var message = new Buffer(JSON.stringify({
+						'action': 'heartbeat'
+					}));
+
+					var client = dgram.createSocket("udp4");
+					
+					client.bind(config.udp_port);
+					client.setBroadcast(true);
+					client.send(message, 0, message.length, config.udp_port, config.broadcast, function(error, bytes) {
+						setTimeout(function() {
+							client.close();
+						}, config.wait);
+					});
+
+					client.on('message', function(buffer, remote) {
+						var data = JSON.parse(buffer.toString());
+						if(data.status != undefined)
+							assist.log('--> UDP: Heartbeat - Msg: ' + remote.address + ' ' + data.status);
+					});
+				}, config.heartbeat);
 			}
 
-			assist.log('=== UDP - Quit - IP: ' + remote.address);
+			assist.log('=== UDP: Quit - IP: ' + remote.address);
 			assist.list_member(status.member);
 
 			break;
@@ -126,7 +154,7 @@ udp_server.on('message', function(message, remote) {
 
 			status.member = data.member;
 
-			assist.log('--> UDP - Refresh');
+			assist.log('--> UDP: Refresh');
 			assist.list_member(status.member);
 
 			break;

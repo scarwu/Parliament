@@ -22,7 +22,7 @@ exports.wait = 500;
 exports.heartbeat = 60000; // 1 min
 
 // File Backup
-exports.backup = 2;
+exports.backup = 1;
 
 // File Name Length
 exports.name_length = 32
@@ -37,7 +37,7 @@ exports.target = './shared_folder';
 exports.db = {
 	'user': 'rnfs',
 	'pass': 'rnfs',
-	'host': '140.126.130.200',
+	'host': '127.0.0.1',
 	'port': 3306,
 	'name': 'parliament'
 }

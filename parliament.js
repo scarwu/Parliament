@@ -8,8 +8,11 @@ var fs = require('fs');
 var net = require('net');
 var dgram = require('dgram');
 
+var mysql = require('mysql-libmysqlclient');
+
 // Require custom module
 var config = require('./config');
+var initdb = require('./library/initdb');
 var assist = require('./library/assist');
 var tcp_server = require('./library/tcp_server');
 var udp_server = require('./library/udp_server');
@@ -19,6 +22,7 @@ global.parliament = {
 	is_leader: false,
 	is_init: false,
 	is_quit: false,
+	heartbeat_timer: null,
 	member: {}
 }
 
@@ -27,18 +31,22 @@ console.log('IP Address - ' + config.address);
 console.log('Broadcast  - ' + config.broadcast);
 console.log('TCP Port   - ' + config.tcp_port);
 console.log('UDP Port   - ' + config.udp_port);
-console.log('Node Hash  - ' + config.hash);
-console.log('');
+console.log('Node Hash  - ' + config.hash + '\n');
 
 // Make directory
 if(!fs.existsSync(config.target))
 	fs.mkdirSync(config.target);
+
+// Initialize Database
+assist.log('=== SYS: Initialize Database');
+initdb.start();
 
 /**
  * TCP Server Handler
  * 
  * Listening port 6000
  */
+assist.log('=== SYS: Start TCP Server');
 tcp_server.start();
 
 /**
@@ -46,6 +54,7 @@ tcp_server.start();
  * 
  * Listening port 6001
  */
+assist.log('=== SYS: Start UDP Server');
 udp_server.start();
 
 /**
@@ -61,10 +70,10 @@ var client = dgram.createSocket("udp4");
 client.bind(config.udp_port);
 client.setBroadcast(true);
 client.send(message, 0, message.length, config.udp_port, config.broadcast, function(error, bytes) {
-    assist.log('<-- UDP - Join');
+    assist.log('<-- UDP: Join');
     client.close();
     
-    assist.log('<-- UDP - Join - Wait response: ' + config.wait + ' ms');
+    assist.log('<-- UDP: Join - Wait response: ' + config.wait + ' ms');
     setTimeout(function() {
     	var status = global.parliament;
 
@@ -77,8 +86,34 @@ client.send(message, 0, message.length, config.udp_port, config.broadcast, funct
 				'ip': config.address
 			}
 			
-			assist.log('<-- UDP - Join - Set role: Leader');
+			assist.log('<-- UDP: Join - Set role: Leader');
 			assist.list_member(status.member);
+
+			// Send Heartbeat
+			assist.log('=== UDP: Heartbeat - Start');
+			status.heartbeat_timer = setInterval(function() {
+				assist.log('<-- UDP: Heartbeat');
+
+				var message = new Buffer(JSON.stringify({
+					'action': 'heartbeat'
+				}));
+
+				var client = dgram.createSocket("udp4");
+				
+				client.bind(config.udp_port);
+				client.setBroadcast(true);
+				client.send(message, 0, message.length, config.udp_port, config.broadcast, function(error, bytes) {
+					setTimeout(function() {
+						client.close();
+					}, config.wait);
+				});
+
+				client.on('message', function(buffer, remote) {
+					var data = JSON.parse(buffer.toString());
+					if(data.status != undefined)
+						assist.log('--> UDP: Heartbeat - Msg: ' + remote.address + ' ' + data.status);
+				});
+			}, config.heartbeat);
 		}
     }, config.wait);
 });
@@ -122,10 +157,12 @@ function sendQuit() {
 		if(error)
 	    	throw error;
 	    	
-	    assist.log('<-- UDP - Quit');
+	    assist.log('<-- UDP: Quit');
 	    client.close();
 	});
 	
+	clearInterval(status.heartbeat);
+
 	// Close All Server
 	tcp_server.stop();
 	udp_server.stop();
@@ -139,23 +176,25 @@ process.on('exit', function() {
 });
 
 // Catch process uncaught Exception
-// process.on('uncaughtException', function(except) {
-// 	assist.log(except);
+process.on('uncaughtException', function(except) {
+	assist.log(except);
 
-// 	if(!global.parliament.is_quit) {
-// 		// Send Quit Command	
-// 		sendQuit();
+	if(!global.parliament.is_quit) {
+		// Send Quit Command
+		sendQuit();
 	  	
-// 	  	// Wait N Second
-// 	  	setTimeout(function() {
-// 			process.exit(1);
-// 		}, config.wait);
-// 	}
-// });
+	  	// Wait N Second
+	  	setTimeout(function() {
+			process.exit(1);
+		}, config.wait);
+	}
+});
 
 // Catch Ctrl-C
 process.on('SIGINT', function() {
 	if(!global.parliament.is_quit) {
+		console.log();
+
 		// Send Quit Command	
 		sendQuit();
 	  	
