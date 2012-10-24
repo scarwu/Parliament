@@ -75,13 +75,13 @@ var tcp_server = net.createServer(function(socket) {
 						conn.connectSync(config.db.host, config.db.user, config.db.pass, config.db.name, config.db.port);
 
 						// Update Database
-						var sql = 'UPDATE relation SET entity_' + config.hash + '=0 WHERE unique_id"' + data.path + '"';
+						var sql = 'UPDATE relation SET entity_' + config.hash + '=0 WHERE unique_id="' + data.path + '"';
 						conn.querySync(sql);
 
 						assist.log(sql);
 
 						// Compare DB table and Member List
-						var sql = 'SELECT * FROM relation WHERE unique_id"' + data.path + '"';
+						var sql = 'SELECT * FROM relation WHERE unique_id="' + data.path + '"';
 						var result = conn.querySync(sql).fetchAllSync()[0];
 
 						var count = 0;
@@ -92,7 +92,7 @@ var tcp_server = net.createServer(function(socket) {
 						}
 
 						if(count == 0) {
-							var sql = 'DELETE FORM relation WHERE unique_id"' + data.path + '"';
+							var sql = 'DELETE FROM relation WHERE unique_id="' + data.path + '"';
 							conn.querySync(sql);
 
 							assist.log(sql);
@@ -153,9 +153,11 @@ var tcp_server = net.createServer(function(socket) {
 						var conn = mysql.createConnectionSync();
 						conn.connectSync(config.db.host, config.db.user, config.db.pass, config.db.name, config.db.port);
 
-						var sql = 'UPDATE relation SET entity_' + config.hash + '=1 WHERE unique_id"' + data.path + '"';
+						var sql = 'UPDATE relation SET entity_' + config.hash + '=1 WHERE unique_id="' + data.path + '"';
 						conn.querySync(sql);
 						conn.closeSync();
+
+						assist.log(sql);
 					}
 				});
 
@@ -180,14 +182,17 @@ var tcp_server = net.createServer(function(socket) {
 						return false;
 					}
 
+					assist.log('=== TCP: Create - File Size: ' + fs.statSync(path).size + ' bytes');
 					assist.log('=== TCP: Create - Database write-back: ' + data.path);
 
 					var conn = mysql.createConnectionSync();
 					conn.connectSync(config.db.host, config.db.user, config.db.pass, config.db.name, config.db.port);
 
-					var sql = 'INSERT INTO relation (path, entity_' + config.hash + ') VALUES ("' + data.path + '", 1)';
+					var sql = 'INSERT INTO relation (unique_id, entity_' + config.hash + ') VALUES ("' + data.path + '", 1)';
 					conn.querySync(sql);
 					conn.closeSync();
+
+					assist.log(sql);
 					
 					// Call anothor server backup file
 					var count = 0;
@@ -218,17 +223,22 @@ var tcp_server = net.createServer(function(socket) {
 				if(fs.existsSync(path)) {
 					assist.log('<-- TCP: Read - File: ' + data.path);
 
-					fs.readFile(path, null, function(error, file) {
-						if(error) {
-							socket.end();
-							return false;
-						}
+					var read_stream = fs.createReadStream(path);
+					read_stream.pipe(socket);
 
-						size_count += file.length;
+					size_count = fs.statSync(path).size;
 
-						socket.write(file);
-						socket.end();
-					});
+					// fs.readFile(path, null, function(error, file) {
+					// 	if(error) {
+					// 		socket.end();
+					// 		return false;
+					// 	}
+
+					// 	size_count += file.length;
+
+					// 	socket.write(file);
+					// 	socket.end();
+					// });
 				}
 				else {
 					assist.log('<-- TCP: Read - Read - File: ' + data.path);
@@ -236,7 +246,7 @@ var tcp_server = net.createServer(function(socket) {
 					var conn = mysql.createConnectionSync();
 					conn.connectSync(config.db.host, config.db.user, config.db.pass, config.db.name, config.db.port);
 
-					var sql = 'SELECT * FROM relation WHERE unique_id"' + data.path + '"';
+					var sql = 'SELECT * FROM relation WHERE unique_id="' + data.path + '"';
 					var result = conn.querySync(sql).fetchAllSync()[0];
 
 					conn.closeSync();
@@ -249,8 +259,9 @@ var tcp_server = net.createServer(function(socket) {
 							entity_list.push(regex.exec(index)[1]);
 					}
 
-					console.log(entity_list);
+					assist.log('=== TCP: Read - Read - Node: ' + JSON.stringify(entity_list));
 
+					// FIXME
 					var client = net.connect({
 						'port': config.tcp_port,
 						'host': status.member[entity_list[parseInt(Math.random() * entity_list.length)]].ip // Random Select Entity (Fixme)
@@ -273,6 +284,7 @@ var tcp_server = net.createServer(function(socket) {
 
 				socket.on('end', function() {
 					assist.log('=== TCP: Read - File Size: ' + size_count + ' bytes');
+					assist.log('=== TCP: Read - End ');
 				});
 				break;
 

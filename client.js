@@ -82,6 +82,7 @@ switch(process.argv[3]) {
 			console.log(data.toString());
 			clearTimeout(timer);
 		});
+		
 		break;
 
 	// Send read

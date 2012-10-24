@@ -16,6 +16,13 @@ function start() {
 	var conn = mysql.createConnectionSync();
 	conn.connectSync(config.db.host, config.db.user, config.db.pass, config.db.name, config.db.port);
 
+	conn.querySync(
+		'CREATE TABLE IF NOT EXISTS `relation` (' +
+			'`unique_id` varchar(128) NOT NULL,' +
+			'PRIMARY KEY (`unique_id`)' +
+		') ENGINE=InnoDB DEFAULT CHARSET=utf8;'
+	);
+
 	var sql = 'ALTER TABLE relation ADD entity_' + config.hash + ' TINYINT(1) NOT NULL DEFAULT 0';
 	conn.querySync(sql);
 	
@@ -23,7 +30,7 @@ function start() {
 	var result = conn.querySync(sql).fetchAllSync();
 
 	if(result.length > 0) {
-		
+
 	}
 
 	conn.closeSync();

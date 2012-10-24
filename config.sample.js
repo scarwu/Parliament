@@ -37,7 +37,7 @@ exports.target = './shared_folder';
 exports.db = {
 	'user': 'rnfs',
 	'pass': 'rnfs',
-	'host': '140.126.130.200',
+	'host': '127.0.0.1',
 	'port': 3306,
 	'name': 'parliament'
 }
