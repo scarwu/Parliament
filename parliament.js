@@ -41,19 +41,11 @@ if(!fs.existsSync(config.target))
 assist.log('=== SYS: Initialize Database');
 initdb.start();
 
-/**
- * TCP Server Handler
- * 
- * Listening port 6000
- */
+// TCP Server Handler
 assist.log('=== SYS: Start TCP Server');
 tcp_server.start();
 
-/**
- * UDP Server Handler
- * 
- * Listening port 6001
- */
+// UDP Server Handler
 assist.log('=== SYS: Start UDP Server');
 udp_server.start();
 
