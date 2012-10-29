@@ -51,8 +51,35 @@ switch(process.argv[3]) {
 		});
 		
 		client.on('data', function(data) {
-			assist.list_member(JSON.parse(data.toString()));
+			console.log(JSON.parse(data.toString()));
 			client.end();
+			clearTimeout(timer);
+		});
+		
+		break;
+
+	// Send read
+	case 'exists':
+		if(process.argv.length <= 4)
+			process.exit();
+
+		var timer = null;
+		var client = net.connect({
+			'port': config.tcp_port,
+			'host': process.argv[2]
+		}, function() {
+			client.write(JSON.stringify({
+				'action': 'exists',
+				'unique_id': process.argv[4]
+			}));
+
+			timer = setTimeout(function() {
+				client.end();
+			}, 1000);
+		});
+
+		client.on('data', function(data) {
+			console.log(data.toString());
 			clearTimeout(timer);
 		});
 		
@@ -70,7 +97,7 @@ switch(process.argv[3]) {
 		}, function() {
 			client.write(JSON.stringify({
 				'action': 'read',
-				'path': process.argv[4]
+				'unique_id': process.argv[4]
 			}));
 
 			timer = setTimeout(function() {
@@ -97,7 +124,7 @@ switch(process.argv[3]) {
 		}, function() {
 			client.write(JSON.stringify({
 				'action': 'read',
-				'path': process.argv[4]
+				'unique_id': process.argv[4]
 			}));
 
 			timer = setTimeout(function() {
@@ -132,8 +159,8 @@ switch(process.argv[3]) {
 		}, function() {
 			client.write(JSON.stringify({
 				'action': 'create',
-				'path': process.argv[4],
-				'src': process.argv[5]
+				'unique_id': process.argv[4],
+				'source': process.argv[5]
 			}));
 			
 			client.end();
@@ -153,7 +180,7 @@ switch(process.argv[3]) {
 		}, function() {
 			client.write(JSON.stringify({
 				'action': 'backup',
-				'path': process.argv[4]
+				'unique_id': process.argv[4]
 			}));
 
 			client.end();
@@ -172,7 +199,7 @@ switch(process.argv[3]) {
 		}, function() {
 			client.write(JSON.stringify({
 				'action': 'delete',
-				'path': process.argv[4]
+				'unique_id': process.argv[4]
 			}));
 
 			client.end();

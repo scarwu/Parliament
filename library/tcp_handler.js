@@ -12,57 +12,76 @@ var config = require('../config');
 var assist = require('./assist');
 
 // File system extend
-fs.copy = function(src, dst, callback) {
-	function copy(error) {
-		var input_stream;
-		var output_stream;
-
-		if(!error) {
-			return callback(new Error("File " + dst + " exists."));
-		}
-
-		fs.stat(src, function(error) {
-			if(error)
-				return callback(error);
-
-			input_stream = fs.createReadStream(src);
-			output_stream = fs.createWriteStream(dst);
-			util.pump(input_stream, output_stream, callback);
-		});
+fs.copy = function(source, destination, callback) {
+	function copy() {
+		util.pump(fs.createReadStream(source), fs.createWriteStream(destination), callback);
 	}
 
-	fs.stat(dst, copy);
+	if(fs.existsSync(source) && !fs.existsSync(destination))
+		copy();
 };
 
+/**
+ * List Member
+ */
 exports.list = function(data, socket) {
 	var status = global.parliament;
 
 	assist.log('--> TCP: List');
 	socket.write(JSON.stringify(status.member));
+	socket.end();
 }
 
+/**
+ * Find Unique ID is exists
+ */
+exports.exists = function(data, socket) {
+	var status = global.parliament;
+
+	assist.log('--> TCP: Exists - Unique ID: ' + data.unique_id);
+
+	var conn = mysql.createConnectionSync();
+	conn.connectSync(config.db.host, config.db.user, config.db.pass, config.db.name, config.db.port);
+
+	var sql = util.format('SELECT * FROM relation WHERE unique_id="%s"', data.unique_id);
+	var result = conn.querySync(sql).fetchAllSync();
+
+	conn.closeSync();
+
+	assist.log('--> TCP: Exists: ' + (result.length != 0));
+	socket.write(JSON.stringify({
+		'exists': result.length != 0
+	}));
+	socket.end();
+}
+
+/**
+ * Read File or Redirect
+ */
 exports.read = function(data, socket) {
 	var status = global.parliament;
-	var path = config.target + '/' +  data.path.replace('/', '');
+	var path = config.target + '/' +  data.unique_id.replace('/', '');
 
 	assist.log('--> TCP: Read');
 
-	var size_count = 0;
 	if(fs.existsSync(path)) {
-		assist.log('<-- TCP: Read - File: ' + data.path);
+		assist.log('<-- TCP: Read - File: ' + data.unique_id);
 
+		// File Stream to Net Stream
 		var read_stream = fs.createReadStream(path);
 		read_stream.pipe(socket);
 
-		size_count = fs.statSync(path).size;
+		socket.on('end', function() {
+			assist.log('=== TCP: Read - File Size: ' + fs.statSync(path).size + ' bytes');
+		});
 	}
 	else {
-		assist.log('<-- TCP: Read - Read - File: ' + data.path);
+		assist.log('<-- TCP: Read - Read - File: ' + data.unique_id);
 
 		var conn = mysql.createConnectionSync();
 		conn.connectSync(config.db.host, config.db.user, config.db.pass, config.db.name, config.db.port);
 
-		var sql = 'SELECT * FROM relation WHERE unique_id="' + data.path + '"';
+		var sql = util.format('SELECT * FROM relation WHERE unique_id="%s"', data.unique_id);
 		var result = conn.querySync(sql).fetchAllSync()[0];
 
 		conn.closeSync();
@@ -85,51 +104,48 @@ exports.read = function(data, socket) {
 		}, function() {
 			client.write(JSON.stringify({
 				'action': 'read',
-				'path': data.path
+				'unique_id': data.unique_id
 			}));
 		});
 
-		client.on('data', function(file) {
-			size_count += file.length;
-			socket.write(file);
-		});
+		// Net Stream to Net Stream
+		client.pipe(socket);
 
-		client.on('end', function() {
-			socket.end();
+		socket.on('end', function() {
+			assist.log('=== TCP: Read - Redirect');
 		});
 	}
-
-	socket.on('end', function() {
-		assist.log('=== TCP: Read - File Size: ' + size_count + ' bytes');
-	});
 }
 
+/**
+ * Create File
+ */
 exports.create = function(data, socket) {
 	socket.end();
 
 	var status = global.parliament;
-	var path = config.target + '/' +  data.path.replace('/', '');
+	var path = config.target + '/' +  data.unique_id.replace('/', '');
 
-	assist.log('--> TCP: Create - File: ' + data.path);
+	assist.log('--> TCP: Create - File: ' + data.unique_id);
 
 	if(fs.existsSync(path)) {
 		socket.end();
 		return false;
 	}
 
-	fs.copy(data.src, path, function(error) {
+	fs.copy(data.source, path, function(error) {
 		if(error) {
 			socket.end();
 			return false;
 		}
 
 		assist.log('=== TCP: Create - File Size: ' + fs.statSync(path).size + ' bytes');
-		assist.log('=== TCP: Create - Database write-back: ' + data.path);
+		assist.log('=== TCP: Create - Database write-back: ' + data.unique_id);
 
 		var conn = mysql.createConnectionSync();
 		conn.connectSync(config.db.host, config.db.user, config.db.pass, config.db.name, config.db.port);
 
-		var sql = 'INSERT INTO relation (unique_id, entity_' + config.hash + ') VALUES ("' + data.path + '", 1)';
+		var sql = util.format('INSERT INTO relation (unique_id, entity_%s) VALUES ("%s", 1)', config.hash, data.unique_id);
 		conn.querySync(sql);
 		conn.closeSync();
 		
@@ -140,10 +156,10 @@ exports.create = function(data, socket) {
 				assist.log('<-- TCP: Backup - IP: ' + status.member[index].ip);
 
 				//FIXME
-				sendBackup({
+				send_backup({
 					'port': config.tcp_port,
 					'host': status.member[index].ip
-				}, data.path);
+				}, data.unique_id);
 
 				if(++count >= config.backup)
 					break;
@@ -151,13 +167,16 @@ exports.create = function(data, socket) {
 	});
 }
 
+/**
+ * Backup File from Remote Server
+ */
 exports.backup = function(data, socket) {
 	socket.end();
 
 	var status = global.parliament;
-	var path = config.target + '/' +  data.path.replace('/', '');
+	var path = config.target + '/' +  data.unique_id.replace('/', '');
 
-	assist.log('--> TCP: Backup - File: ' + data.path);
+	assist.log('--> TCP: Backup - File: ' + data.unique_id);
 
 	// Send Command: Read
 	var client = net.connect({
@@ -166,36 +185,38 @@ exports.backup = function(data, socket) {
 	}, function() {
 		client.write(JSON.stringify({
 			'action': 'read',
-			'path': data.path
+			'unique_id': data.unique_id
 		}));
-		assist.log('<-- TCP: Backup - Read - File: ' + data.path);
+		assist.log('<-- TCP: Backup - Read - File: ' + data.unique_id);
 	});
 	
+	// Net Stream to File Stream
 	var write_stream = fs.createWriteStream(path);
-	client.on('data', function(file) {
-		write_stream.write(file);
-	});
+	client.pipe(write_stream);
 
 	client.on('end', function() {
 		if(fs.existsSync(path)) {
 			assist.log('=== TCP: Backup - Read - File Size: ' + fs.statSync(path).size + ' bytes');
-			assist.log('=== TCP: Backup - Database write-back: ' + data.path);
+			assist.log('=== TCP: Backup - Database write-back: ' + data.unique_id);
 
 			var conn = mysql.createConnectionSync();
 			conn.connectSync(config.db.host, config.db.user, config.db.pass, config.db.name, config.db.port);
 
-			var sql = 'UPDATE relation SET entity_' + config.hash + '=1 WHERE unique_id="' + data.path + '"';
+			var sql = util.format('UPDATE relation SET entity_%s=1 WHERE unique_id="%s"', config.hash, data.unique_id);
 			conn.querySync(sql);
 			conn.closeSync();
 		}
 	});
 }
 
+/**
+ * Delete File
+ */
 exports.delete = function(data, socket) {
 	socket.end();
 
 	var status = global.parliament;
-	var path = config.target + '/' +  data.path.replace('/', '');
+	var path = config.target + '/' +  data.unique_id.replace('/', '');
 
 	if(fs.existsSync(path))
 		fs.unlink(path, function(error) {
@@ -204,17 +225,17 @@ exports.delete = function(data, socket) {
 				return false;
 			}
 
-			assist.log('--> TCP: Delete - File: ' + data.path);
+			assist.log('--> TCP: Delete - File: ' + data.unique_id);
 
 			var conn = mysql.createConnectionSync();
 			conn.connectSync(config.db.host, config.db.user, config.db.pass, config.db.name, config.db.port);
 
 			// Update Database
-			var sql = 'UPDATE relation SET entity_' + config.hash + '=0 WHERE unique_id="' + data.path + '"';
+			var sql = util.format('UPDATE relation SET entity_%s=0 WHERE unique_id="%s"', config.hash, data.unique_id);
 			conn.querySync(sql);
 
 			// Compare DB table and Member List
-			var sql = 'SELECT * FROM relation WHERE unique_id="' + data.path + '"';
+			var sql = util.format('SELECT * FROM relation WHERE unique_id="%s"', data.unique_id);
 			var result = conn.querySync(sql).fetchAllSync()[0];
 
 			var count = 0;
@@ -225,7 +246,7 @@ exports.delete = function(data, socket) {
 			}
 
 			if(count == 0) {
-				var sql = 'DELETE FROM relation WHERE unique_id="' + data.path + '"';
+				var sql = util.format('DELETE FROM relation WHERE unique_id="%s"', data.unique_id);
 				conn.querySync(sql);
 			}
 
@@ -233,22 +254,22 @@ exports.delete = function(data, socket) {
 		});
 }
 
-function sendBackup(option, path) {
+function send_backup(option, unique_id) {
 	var client = net.connect(option, function() {
 		client.write(JSON.stringify({
 			'action': 'backup',
-			'path': path
+			'unique_id': unique_id
 		}));
 
 		client.end();
 	});
 }
 
-function sendDelete(option, path) {
+function send_delete(option, unique_id) {
 	var client = net.connect(option, function() {
 		client.write(JSON.stringify({
 			'action': 'delete',
-			'path': path
+			'unique_id': unique_id
 		}));
 
 		client.end();
