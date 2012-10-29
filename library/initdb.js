@@ -18,7 +18,7 @@ function start() {
 
 	conn.querySync(
 		'CREATE TABLE IF NOT EXISTS `relation` (' +
-			'`unique_id` varchar(128) NOT NULL,' +
+			'`unique_id` varchar(64) NOT NULL,' +
 			'PRIMARY KEY (`unique_id`)' +
 		') ENGINE=InnoDB DEFAULT CHARSET=utf8;'
 	);

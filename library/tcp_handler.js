@@ -38,8 +38,6 @@ exports.list = function(data, socket) {
 exports.exists = function(data, socket) {
 	var status = global.parliament;
 
-	assist.log('--> TCP: Exists - Unique ID: ' + data.unique_id);
-
 	var conn = mysql.createConnectionSync();
 	conn.connectSync(config.db.host, config.db.user, config.db.pass, config.db.name, config.db.port);
 
@@ -48,7 +46,7 @@ exports.exists = function(data, socket) {
 
 	conn.closeSync();
 
-	assist.log('--> TCP: Exists: ' + (result.length != 0));
+	assist.log('--> TCP: Exists - FIle: ' + data.unique_id + ' ' + (result.length != 0));
 	socket.write(JSON.stringify({
 		'exists': result.length != 0
 	}));
