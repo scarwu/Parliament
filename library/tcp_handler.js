@@ -88,7 +88,7 @@ exports.read = function(data, socket) {
 		var entity_list = new Array();
 		var regex = /^entity_(\w+)/;
 		for(var index in result) {
-			if(index.match(regex) && result[index] != 0 && regex.exec(index)[1] in status.member)
+			if(regex.exec(index)[1] in status.member && result[index] == 1)
 				entity_list.push(regex.exec(index)[1]);
 		}
 
@@ -239,7 +239,7 @@ exports.delete = function(data, socket) {
 			var count = 0;
 			var regex = /^entity_(\w+)/;
 			for(var index in result) {
-				if(index.match(regex) && regex.exec(index)[1] in status.member)
+				if(regex.exec(index)[1] in status.member)
 					count += result[index];
 			}
 
@@ -247,9 +247,44 @@ exports.delete = function(data, socket) {
 				var sql = util.format('DELETE FROM relation WHERE unique_id="%s"', data.unique_id);
 				conn.querySync(sql);
 			}
+			else {
+				for(var index in result) {
+					if(regex.exec(index)[1] in status.member && result[index] == 1) {
+						assist.log('--> TCP: Delete - Next - File: ' + data.unique_id);
+						send_delete({
+							'port': config.tcp_port,
+							'host': status.member[regex.exec(index)[1]].ip
+						}, data.unique_id);
+						break;
+					}
+				}
+			}
 
 			conn.closeSync();
 		});
+	else {
+		assist.log('--> TCP: Delete - Redirect - File: ' + data.unique_id);
+
+		var conn = mysql.createConnectionSync();
+		conn.connectSync(config.db.host, config.db.user, config.db.pass, config.db.name, config.db.port);
+
+		// Compare DB table and Member List
+		var sql = util.format('SELECT * FROM relation WHERE unique_id="%s"', data.unique_id);
+		var result = conn.querySync(sql).fetchAllSync()[0];
+
+		conn.closeSync();
+
+		var regex = /^entity_(\w+)/;
+		for(var index in result) {
+			if(regex.exec(index)[1] in status.member && result[index] == 1) {
+				send_delete({
+					'port': config.tcp_port,
+					'host': status.member[regex.exec(index)[1]].ip
+				}, data.unique_id);
+				break;
+			}
+		}
+	}
 }
 
 function send_backup(option, unique_id) {
