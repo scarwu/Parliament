@@ -88,7 +88,7 @@ exports.read = function(data, socket) {
 		var entity_list = new Array();
 		var regex = /^entity_(\w+)/;
 		for(var index in result) {
-			if(regex.exec(index)[1] in status.member && result[index] == 1)
+			if(index.match(regex) && regex.exec(index)[1] in status.member && result[index] == 1)
 				entity_list.push(regex.exec(index)[1]);
 		}
 
@@ -216,6 +216,7 @@ exports.delete = function(data, socket) {
 	var status = global.parliament;
 	var path = config.target + '/' +  data.unique_id.replace('/', '');
 
+	// FIXME file check
 	if(fs.existsSync(path))
 		fs.unlink(path, function(error) {
 			if(error) {
@@ -239,7 +240,7 @@ exports.delete = function(data, socket) {
 			var count = 0;
 			var regex = /^entity_(\w+)/;
 			for(var index in result) {
-				if(regex.exec(index)[1] in status.member)
+				if(index.match(regex) && regex.exec(index)[1] in status.member)
 					count += result[index];
 			}
 
@@ -249,7 +250,7 @@ exports.delete = function(data, socket) {
 			}
 			else {
 				for(var index in result) {
-					if(regex.exec(index)[1] in status.member && result[index] == 1) {
+					if(index.match(regex) && regex.exec(index)[1] in status.member && result[index] == 1) {
 						assist.log('--> TCP: Delete - Next - File: ' + data.unique_id);
 						send_delete({
 							'port': config.tcp_port,
@@ -276,7 +277,7 @@ exports.delete = function(data, socket) {
 
 		var regex = /^entity_(\w+)/;
 		for(var index in result) {
-			if(regex.exec(index)[1] in status.member && result[index] == 1) {
+			if(index.match(regex) && regex.exec(index)[1] in status.member && result[index] == 1) {
 				send_delete({
 					'port': config.tcp_port,
 					'host': status.member[regex.exec(index)[1]].ip
