@@ -86,16 +86,16 @@ exports.accept = function(data, socket, remote) {
 	assist.log('--> UDP: Accept - Member');
 	assist.list_member(status.member);
 
+	assist.log('<-- UDP: Accept - Unique: Request');
+
 	// Request All Unique
 	var client = net.connect({
 		'port': config.tcp_port,
 		'host': remote.address
 	}, function() {
 		client.write(JSON.stringify({
-			'action': 'unique'
+			'action': 'all_unique'
 		}));
-
-		client.end();
 	});
 
 	// append response to buffer
@@ -105,9 +105,10 @@ exports.accept = function(data, socket, remote) {
 	});
 
 	// handle buffer
-	client.on('end', function(data) {
+	client.on('end', function() {
 		unique = JSON.parse(unique);
 
+		assist.log('=== UDP: Accept - Unique: End');
 		for(var id in unique) {
 			if(status.all_unique[id] == undefined)
 				status.all_unique[id] = {};
@@ -116,6 +117,7 @@ exports.accept = function(data, socket, remote) {
 				status.all_unique[id][hash] = 1;
 		}
 
+		assist.log('<-- UDP: Accept - Unique: Merge');
 		// Send sub unique
 		for(var hash in status.member)
 			if(hash != config.hash)
@@ -123,6 +125,8 @@ exports.accept = function(data, socket, remote) {
 					'port': config.tcp_port,
 					'host': status.member[hash].ip
 				}, status.sub_unique);
+
+		client.end();
 	});
 }
 
@@ -131,8 +135,7 @@ function send_record_merge(option, unique) {
 	var client = net.connect(option, function() {
 		client.write(JSON.stringify({
 			'action': 'record_merge',
-			'hash': config.hash,
-			'unique': unique
+			'hash': config.hash
 		}));
 
 		client.end();
@@ -157,8 +160,8 @@ exports.quit = function(data, socket, remote) {
 				delete status.all_unique[id];
 		}
 
-	console.log(status.sub_unique);
-	console.log(status.all_unique);
+	// console.log(status.sub_unique);
+	// console.log(status.all_unique);
 
 	// Delete quit node
 	delete status.member[data.hash];

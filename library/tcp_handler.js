@@ -279,11 +279,30 @@ function send_delete(option, unique_id) {
 /**
  * Get all unique record
  */
-exports.unique = function(data, socket) {
+exports.all_unique = function(data, socket) {
+	assist.log('--> TCP: All Unique');
+
 	var status = global.parliament;
 
 	socket.write(JSON.stringify(status.all_unique));
 	socket.end();
+
+	socket.on('end', function() {
+		assist.log('--> TCP: Unique - End');
+	});
+}
+
+exports.sub_unique = function(data, socket) {
+	assist.log('--> TCP: Sub Unique');
+
+	var status = global.parliament;
+
+	socket.write(JSON.stringify(status.sub_unique));
+	socket.end();
+
+	socket.on('end', function() {
+		assist.log('--> TCP: Unique - End');
+	});
 }
 
 /**
@@ -292,14 +311,39 @@ exports.unique = function(data, socket) {
 exports.record_merge = function(data, socket) {
 	socket.end();
 
+	assist.log('--> TCP: Record Merge');
+
 	var status = global.parliament;
+	var client = net.connect({
+		'port': config.tcp_port,
+		'host': socket.remoteAddress
+	}, function() {
+		client.write(JSON.stringify({
+			'action': 'sub_unique'
+		}));
+	});
 
-	for(var id in data.unique) {
-		if(status.all_unique[id] == undefined)
-			status.all_unique[id] = {};
+	var unique = '';
+	client.on('data', function(data) {
+		unique += data;
+	});
 
-		status.all_unique[id][data.hash] = 1;
-	}
+	// handle buffer
+	client.on('end', function() {
+		assist.log('--> TCP: Record Merge: End');
+
+		unique = JSON.parse(unique);
+
+		for(var id in unique) {
+			if(status.all_unique[id] == undefined)
+				status.all_unique[id] = {};
+
+			status.all_unique[id][data.hash] = 1;
+		}
+
+		client.end();
+	});
+
 }
 
 /**
@@ -307,6 +351,8 @@ exports.record_merge = function(data, socket) {
  */
 exports.record_append = function(data, socket) {
 	socket.end();
+
+	assist.log('--> TCP: Record Append');
 
 	var status = global.parliament;
 
@@ -321,6 +367,8 @@ exports.record_append = function(data, socket) {
  */
 exports.record_delete = function(data, socket) {
 	socket.end();
+
+	assist.log('--> TCP: Record Delete');
 
 	var status = global.parliament;
 

@@ -35,14 +35,14 @@ switch(process.argv[3]) {
 		break;
 
 	// Send unique
-	case 'unique':
+	case 'all_unique':
 		var timer = null;
 		var client = net.connect({
 			'port': config.tcp_port,
 			'host': process.argv[2]
 		}, function() {
 			client.write(JSON.stringify({
-				'action': 'unique'
+				'action': 'all_unique'
 			}));
 
 			timer = setTimeout(function() {
@@ -50,11 +50,45 @@ switch(process.argv[3]) {
 			}, 1000);
 		});
 		
+		var unique = '';
 		client.on('data', function(data) {
-			console.log(JSON.parse(data.toString()));
-			client.end();
+			unique += data;
 			clearTimeout(timer);
 		});
+
+		client.on('end', function() {
+			console.log(unique);
+			client.end();
+		})
+		
+		break;
+
+	// Send unique
+	case 'sub_unique':
+		var timer = null;
+		var client = net.connect({
+			'port': config.tcp_port,
+			'host': process.argv[2]
+		}, function() {
+			client.write(JSON.stringify({
+				'action': 'sub_unique'
+			}));
+
+			timer = setTimeout(function() {
+				client.end();
+			}, 1000);
+		});
+		
+		var unique = '';
+		client.on('data', function(data) {
+			unique += data;
+			clearTimeout(timer);
+		});
+
+		client.on('end', function() {
+			console.log(unique);
+			client.end();
+		})
 		
 		break;
 
