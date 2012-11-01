@@ -34,15 +34,15 @@ switch(process.argv[3]) {
 
 		break;
 
-	// Send list
-	case 'list':
+	// Send unique
+	case 'unique':
 		var timer = null;
 		var client = net.connect({
 			'port': config.tcp_port,
 			'host': process.argv[2]
 		}, function() {
 			client.write(JSON.stringify({
-				'action': 'list'
+				'action': 'unique'
 			}));
 
 			timer = setTimeout(function() {
