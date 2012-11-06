@@ -50,16 +50,13 @@ switch(process.argv[3]) {
 			}, 1000);
 		});
 		
-		var unique = '';
-		client.on('data', function(data) {
-			unique += data;
-			clearTimeout(timer);
-		});
+		var parse_stream = require('JSONStream').parse();
+		client.pipe(parse_stream);
 
-		client.on('end', function() {
-			console.log(unique);
+		parse_stream.on('data', function(object) {
 			client.end();
-		})
+			console.log(object);
+		});
 		
 		break;
 
@@ -79,16 +76,13 @@ switch(process.argv[3]) {
 			}, 1000);
 		});
 		
-		var unique = '';
-		client.on('data', function(data) {
-			unique += data;
-			clearTimeout(timer);
-		});
+		var parse_stream = require('JSONStream').parse();
+		client.pipe(parse_stream);
 
-		client.on('end', function() {
-			console.log(unique);
+		parse_stream.on('data', function(object) {
 			client.end();
-		})
+			console.log(object);
+		});
 		
 		break;
 

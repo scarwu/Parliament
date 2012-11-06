@@ -17,7 +17,7 @@ var tcp_server = net.createServer(function(socket) {
 		}
 		catch(error) {
 			console.log(error);
-			console.log(message);
+			console.log(message.toString());
 		}
 	});
 });

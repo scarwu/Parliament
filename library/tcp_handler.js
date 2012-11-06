@@ -9,6 +9,8 @@ var util = require('util');
 var config = require('../config');
 var assist = require('./assist');
 
+var json = require('json-streams');
+
 // File system extend
 fs.copy = function(source, destination, callback) {
 	function copy() {
@@ -323,16 +325,11 @@ exports.record_merge = function(data, socket) {
 		}));
 	});
 
-	var unique = '';
-	client.on('data', function(data) {
-		unique += data;
-	});
+	var json_stream = require('JSONStream').parse();
+	client.pipe(json_stream);
 
-	// handle buffer
-	client.on('end', function() {
-		assist.log('--> TCP: Record Merge: End');
-
-		unique = JSON.parse(unique);
+	json_stream.on('data', function(unique) {
+	    assist.log('--> TCP: Record Merge: End');
 
 		for(var id in unique) {
 			if(status.all_unique[id] == undefined)
@@ -343,7 +340,6 @@ exports.record_merge = function(data, socket) {
 
 		client.end();
 	});
-
 }
 
 /**

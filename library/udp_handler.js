@@ -98,16 +98,11 @@ exports.accept = function(data, socket, remote) {
 		}));
 	});
 
-	// append response to buffer
-	var unique = '';
-	client.on('data', function(data) {
-		unique += data;
-	});
+	var json_stream = require('JSONStream').parse();
+	client.pipe(json_stream);
 
 	// handle buffer
-	client.on('end', function() {
-		unique = JSON.parse(unique);
-
+	json_stream.on('data', function(unique) {
 		assist.log('=== UDP: Accept - Unique: End');
 		for(var id in unique) {
 			if(status.all_unique[id] == undefined)
@@ -124,14 +119,14 @@ exports.accept = function(data, socket, remote) {
 				send_record_merge({
 					'port': config.tcp_port,
 					'host': status.member[hash].ip
-				}, status.sub_unique);
+				});
 
 		client.end();
 	});
 }
 
 // Send Record
-function send_record_merge(option, unique) {
+function send_record_merge(option) {
 	var client = net.connect(option, function() {
 		client.write(JSON.stringify({
 			'action': 'record_merge',
