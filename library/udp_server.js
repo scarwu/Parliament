@@ -10,10 +10,16 @@ var udp_handler = require('./udp_handler');
 var udp_server = dgram.createSocket("udp4");
 
 udp_server.on('message', function(message, remote) {
-	var data = JSON.parse(message);
-	
-	if(data.action in udp_handler)
-		udp_handler[data.action](data, udp_server, remote);
+	try {
+		var data = JSON.parse(message);
+		
+		if(data.action in udp_handler)
+			udp_handler[data.action](data, udp_server, remote);
+	}
+	catch(error) {
+		console.log(error);
+		console.log(message.toString());
+	}
 });
 
 // Module Exports

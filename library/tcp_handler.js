@@ -5,11 +5,11 @@ var fs = require('fs');
 var net = require('net');
 var util = require('util');
 
-var mysql = require('mysql-libmysqlclient');
-
 // Require custom module
 var config = require('../config');
 var assist = require('./assist');
+
+var json = require('json-streams');
 
 // File system extend
 fs.copy = function(source, destination, callback) {
@@ -22,33 +22,15 @@ fs.copy = function(source, destination, callback) {
 };
 
 /**
- * List Member
- */
-exports.list = function(data, socket) {
-	var status = global.parliament;
-
-	assist.log('--> TCP: List');
-	socket.write(JSON.stringify(status.member));
-	socket.end();
-}
-
-/**
  * Find Unique ID is exists
  */
 exports.exists = function(data, socket) {
 	var status = global.parliament;
+	var exists = data.unique_id in status.all_unique;
 
-	var conn = mysql.createConnectionSync();
-	conn.connectSync(config.db.host, config.db.user, config.db.pass, config.db.name, config.db.port);
-
-	var sql = util.format('SELECT * FROM relation WHERE unique_id="%s"', data.unique_id);
-	var result = conn.querySync(sql).fetchAllSync();
-
-	conn.closeSync();
-
-	assist.log('--> TCP: Exists - FIle: ' + data.unique_id + ' ' + (result.length != 0));
+	assist.log('--> TCP: Exists - FIle: ' + data.unique_id + ' ' + exists);
 	socket.write(JSON.stringify({
-		'exists': result.length != 0
+		'exists': exists
 	}));
 	socket.end();
 }
@@ -58,12 +40,13 @@ exports.exists = function(data, socket) {
  */
 exports.read = function(data, socket) {
 	var status = global.parliament;
-	var path = config.target + '/' +  data.unique_id.replace('/', '');
-
+	
 	assist.log('--> TCP: Read');
 
-	if(fs.existsSync(path)) {
+	if(data.unique_id in status.sub_unique) {
 		assist.log('<-- TCP: Read - File: ' + data.unique_id);
+
+		var path = config.target + '/' +  data.unique_id.replace('/', '');
 
 		// File Stream to Net Stream
 		var read_stream = fs.createReadStream(path);
@@ -73,23 +56,14 @@ exports.read = function(data, socket) {
 			assist.log('=== TCP: Read - File Size: ' + fs.statSync(path).size + ' bytes');
 		});
 	}
-	else {
+	else if(data.unique_id in status.all_unique) {
 		assist.log('<-- TCP: Read - Read - File: ' + data.unique_id);
-
-		var conn = mysql.createConnectionSync();
-		conn.connectSync(config.db.host, config.db.user, config.db.pass, config.db.name, config.db.port);
-
-		var sql = util.format('SELECT * FROM relation WHERE unique_id="%s"', data.unique_id);
-		var result = conn.querySync(sql).fetchAllSync()[0];
-
-		conn.closeSync();
 
 		// Compare DB table and Member List
 		var entity_list = new Array();
-		var regex = /^entity_(\w+)/;
-		for(var index in result) {
-			if(index.match(regex) && regex.exec(index)[1] in status.member && result[index] == 1)
-				entity_list.push(regex.exec(index)[1]);
+		for(var hash in status.member) {
+			if(hash in status.all_unique[data.unique_id])
+				entity_list.push(hash);
 		}
 
 		assist.log('=== TCP: Read - Read - Node: ' + JSON.stringify(entity_list));
@@ -122,14 +96,15 @@ exports.create = function(data, socket) {
 	socket.end();
 
 	var status = global.parliament;
-	var path = config.target + '/' +  data.unique_id.replace('/', '');
-
+	
 	assist.log('--> TCP: Create - File: ' + data.unique_id);
 
-	if(fs.existsSync(path)) {
+	if(data.unique_id in status.all_unique) {
 		socket.end();
 		return false;
 	}
+
+	var path = config.target + '/' +  data.unique_id.replace('/', '');
 
 	fs.copy(data.source, path, function(error) {
 		if(error) {
@@ -138,25 +113,33 @@ exports.create = function(data, socket) {
 		}
 
 		assist.log('=== TCP: Create - File Size: ' + fs.statSync(path).size + ' bytes');
-		assist.log('=== TCP: Create - Database write-back: ' + data.unique_id);
+		assist.log('=== TCP: Create - Record write-back: ' + data.unique_id);
 
-		var conn = mysql.createConnectionSync();
-		conn.connectSync(config.db.host, config.db.user, config.db.pass, config.db.name, config.db.port);
+		if(status.all_unique[data.unique_id] == undefined)
+			status.all_unique[data.unique_id] = {};
 
-		var sql = util.format('INSERT INTO relation (unique_id, entity_%s) VALUES ("%s", 1)', config.hash, data.unique_id);
-		conn.querySync(sql);
-		conn.closeSync();
+		// Racord unique
+		status.sub_unique[data.unique_id] = 1;
+		status.all_unique[data.unique_id][config.hash] = 1;
 		
+		// Send Record append
+		for(var hash in status.member)
+			if(hash != config.hash)
+				send_record_append({
+					'port': config.tcp_port,
+					'host': status.member[hash].ip
+				}, data.unique_id);
+
 		// Call anothor server backup file
 		var count = 0;
-		for(var index in status.member)
-			if(status.member[index].hash != config.hash) {
-				assist.log('<-- TCP: Backup - IP: ' + status.member[index].ip);
+		for(var hash in status.member)
+			if(hash != config.hash) {
+				assist.log('<-- TCP: Backup - IP: ' + status.member[hash].ip);
 
-				//FIXME
+				//FIXME need follow index value
 				send_backup({
 					'port': config.tcp_port,
-					'host': status.member[index].ip
+					'host': status.member[hash].ip
 				}, data.unique_id);
 
 				if(++count >= config.backup)
@@ -172,7 +155,6 @@ exports.backup = function(data, socket) {
 	socket.end();
 
 	var status = global.parliament;
-	var path = config.target + '/' +  data.unique_id.replace('/', '');
 
 	assist.log('--> TCP: Backup - File: ' + data.unique_id);
 
@@ -188,6 +170,8 @@ exports.backup = function(data, socket) {
 		assist.log('<-- TCP: Backup - Read - File: ' + data.unique_id);
 	});
 	
+	var path = config.target + '/' +  data.unique_id.replace('/', '');
+
 	// Net Stream to File Stream
 	var write_stream = fs.createWriteStream(path);
 	client.pipe(write_stream);
@@ -195,14 +179,22 @@ exports.backup = function(data, socket) {
 	client.on('end', function() {
 		if(fs.existsSync(path)) {
 			assist.log('=== TCP: Backup - Read - File Size: ' + fs.statSync(path).size + ' bytes');
-			assist.log('=== TCP: Backup - Database write-back: ' + data.unique_id);
+			assist.log('=== TCP: Backup - Record write-back: ' + data.unique_id);
 
-			var conn = mysql.createConnectionSync();
-			conn.connectSync(config.db.host, config.db.user, config.db.pass, config.db.name, config.db.port);
+			if(status.all_unique[data.unique_id] == undefined)
+				status.all_unique[data.unique_id] = {};
 
-			var sql = util.format('UPDATE relation SET entity_%s=1 WHERE unique_id="%s"', config.hash, data.unique_id);
-			conn.querySync(sql);
-			conn.closeSync();
+			// Racord unique
+			status.all_unique[data.unique_id][config.hash] = 1;
+			status.sub_unique[data.unique_id] = 1;
+
+			// Send Record append
+			for(var hash in status.member)
+				if(hash != config.hash)
+					send_record_append({
+						'port': config.tcp_port,
+						'host': status.member[hash].ip
+					}, data.unique_id);
 		}
 	});
 }
@@ -217,7 +209,7 @@ exports.delete = function(data, socket) {
 	var path = config.target + '/' +  data.unique_id.replace('/', '');
 
 	// FIXME file check
-	if(fs.existsSync(path))
+	if(data.unique_id in status.sub_unique)
 		fs.unlink(path, function(error) {
 			if(error) {
 				socket.end();
@@ -226,64 +218,40 @@ exports.delete = function(data, socket) {
 
 			assist.log('--> TCP: Delete - File: ' + data.unique_id);
 
-			var conn = mysql.createConnectionSync();
-			conn.connectSync(config.db.host, config.db.user, config.db.pass, config.db.name, config.db.port);
+			delete status.sub_unique[data.unique_id];
+			delete status.all_unique[data.unique_id][config.hash];
 
-			// Update Database
-			var sql = util.format('UPDATE relation SET entity_%s=0 WHERE unique_id="%s"', config.hash, data.unique_id);
-			conn.querySync(sql);
+			if(Object.keys(status.all_unique[data.unique_id]) == 0)
+				delete status.all_unique[data.unique_id];
 
-			// Compare DB table and Member List
-			var sql = util.format('SELECT * FROM relation WHERE unique_id="%s"', data.unique_id);
-			var result = conn.querySync(sql).fetchAllSync()[0];
+			// Send Record delete
+			for(var hash in status.member)
+				if(hash != config.hash)
+					send_record_delete({
+						'port': config.tcp_port,
+						'host': status.member[hash].ip
+					}, data.unique_id);
 
-			var count = 0;
-			var regex = /^entity_(\w+)/;
-			for(var index in result) {
-				if(index.match(regex) && regex.exec(index)[1] in status.member)
-					count += result[index];
-			}
-
-			if(count == 0) {
-				var sql = util.format('DELETE FROM relation WHERE unique_id="%s"', data.unique_id);
-				conn.querySync(sql);
-			}
-			else {
-				for(var index in result) {
-					if(index.match(regex) && regex.exec(index)[1] in status.member && result[index] == 1) {
-						assist.log('--> TCP: Delete - Next - File: ' + data.unique_id);
-						send_delete({
-							'port': config.tcp_port,
-							'host': status.member[regex.exec(index)[1]].ip
-						}, data.unique_id);
-						break;
-					}
+			if(data.unique_id in status.all_unique) {
+				for(var hash in status.all_unique[data.unique_id]) {
+					assist.log('--> TCP: Delete - Next - File: ' + data.unique_id);
+					send_delete({
+						'port': config.tcp_port,
+						'host': status.member[hash].ip
+					}, data.unique_id);
+					break;
 				}
 			}
-
-			conn.closeSync();
 		});
-	else {
+	else if(data.unique_id in status.all_unique) {
 		assist.log('--> TCP: Delete - Redirect - File: ' + data.unique_id);
 
-		var conn = mysql.createConnectionSync();
-		conn.connectSync(config.db.host, config.db.user, config.db.pass, config.db.name, config.db.port);
-
-		// Compare DB table and Member List
-		var sql = util.format('SELECT * FROM relation WHERE unique_id="%s"', data.unique_id);
-		var result = conn.querySync(sql).fetchAllSync()[0];
-
-		conn.closeSync();
-
-		var regex = /^entity_(\w+)/;
-		for(var index in result) {
-			if(index.match(regex) && regex.exec(index)[1] in status.member && result[index] == 1) {
-				send_delete({
-					'port': config.tcp_port,
-					'host': status.member[regex.exec(index)[1]].ip
-				}, data.unique_id);
-				break;
-			}
+		for(var hash in status.all_unique[data.unique_id]) {
+			send_delete({
+				'port': config.tcp_port,
+				'host': status.member[hash].ip
+			}, data.unique_id);
+			break;
 		}
 	}
 }
@@ -304,6 +272,126 @@ function send_delete(option, unique_id) {
 		client.write(JSON.stringify({
 			'action': 'delete',
 			'unique_id': unique_id
+		}));
+
+		client.end();
+	});
+}
+
+/**
+ * Get all unique record
+ */
+exports.all_unique = function(data, socket) {
+	assist.log('--> TCP: All Unique');
+
+	var status = global.parliament;
+
+	socket.write(JSON.stringify(status.all_unique));
+	socket.end();
+
+	socket.on('end', function() {
+		assist.log('--> TCP: Unique - End');
+	});
+}
+
+exports.sub_unique = function(data, socket) {
+	assist.log('--> TCP: Sub Unique');
+
+	var status = global.parliament;
+
+	socket.write(JSON.stringify(status.sub_unique));
+	socket.end();
+
+	socket.on('end', function() {
+		assist.log('--> TCP: Unique - End');
+	});
+}
+
+/**
+ * Merge reocrd
+ */
+exports.record_merge = function(data, socket) {
+	socket.end();
+
+	assist.log('--> TCP: Record Merge');
+
+	var status = global.parliament;
+	var client = net.connect({
+		'port': config.tcp_port,
+		'host': socket.remoteAddress
+	}, function() {
+		client.write(JSON.stringify({
+			'action': 'sub_unique'
+		}));
+	});
+
+	var json_stream = require('JSONStream').parse();
+	client.pipe(json_stream);
+
+	json_stream.on('data', function(unique) {
+	    assist.log('--> TCP: Record Merge: End');
+
+		for(var id in unique) {
+			if(status.all_unique[id] == undefined)
+				status.all_unique[id] = {};
+
+			status.all_unique[id][data.hash] = 1;
+		}
+
+		client.end();
+	});
+}
+
+/**
+ * Append reocrd
+ */
+exports.record_append = function(data, socket) {
+	socket.end();
+
+	assist.log('--> TCP: Record Append');
+
+	var status = global.parliament;
+
+	if(status.all_unique[data.unique] == undefined)
+		status.all_unique[data.unique] = {};
+
+	status.all_unique[data.unique][data.hash] = 1;
+}
+
+/**
+ * Delet record
+ */
+exports.record_delete = function(data, socket) {
+	socket.end();
+
+	assist.log('--> TCP: Record Delete');
+
+	var status = global.parliament;
+
+	delete status.all_unique[data.unique][data.hash];
+
+	if(Object.keys(status.all_unique[data.unique]) == 0)
+		delete status.all_unique[data.unique];
+}
+
+function send_record_append(option, unique) {
+	var client = net.connect(option, function() {
+		client.write(JSON.stringify({
+			'action': 'record_append',
+			'hash': config.hash,
+			'unique': unique
+		}));
+
+		client.end();
+	});
+}
+
+function send_record_delete(option, unique) {
+	var client = net.connect(option, function() {
+		client.write(JSON.stringify({
+			'action': 'record_delete',
+			'hash': config.hash,
+			'unique': unique
 		}));
 
 		client.end();

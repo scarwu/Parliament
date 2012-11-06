@@ -32,12 +32,3 @@ exports.hash = assist.hash();
 
 // DFS Target Directory
 exports.target = './shared_folder';
-
-// Database Config
-exports.db = {
-	'user': 'rnfs',
-	'pass': 'rnfs',
-	'host': '127.0.0.1',
-	'port': 3306,
-	'name': 'parliament'
-}
