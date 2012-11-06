@@ -34,15 +34,15 @@ switch(process.argv[3]) {
 
 		break;
 
-	// Send list
-	case 'list':
+	// Send unique
+	case 'all_unique':
 		var timer = null;
 		var client = net.connect({
 			'port': config.tcp_port,
 			'host': process.argv[2]
 		}, function() {
 			client.write(JSON.stringify({
-				'action': 'list'
+				'action': 'all_unique'
 			}));
 
 			timer = setTimeout(function() {
@@ -50,10 +50,38 @@ switch(process.argv[3]) {
 			}, 1000);
 		});
 		
-		client.on('data', function(data) {
-			console.log(JSON.parse(data.toString()));
+		var parse_stream = require('JSONStream').parse();
+		client.pipe(parse_stream);
+
+		parse_stream.on('data', function(object) {
 			client.end();
-			clearTimeout(timer);
+			console.log(object);
+		});
+		
+		break;
+
+	// Send unique
+	case 'sub_unique':
+		var timer = null;
+		var client = net.connect({
+			'port': config.tcp_port,
+			'host': process.argv[2]
+		}, function() {
+			client.write(JSON.stringify({
+				'action': 'sub_unique'
+			}));
+
+			timer = setTimeout(function() {
+				client.end();
+			}, 1000);
+		});
+		
+		var parse_stream = require('JSONStream').parse();
+		client.pipe(parse_stream);
+
+		parse_stream.on('data', function(object) {
+			client.end();
+			console.log(object);
 		});
 		
 		break;

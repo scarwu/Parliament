@@ -61,7 +61,7 @@ function hash() {
 	var result = null;
 	var path = process.argv[1].split('/');
 	path.pop();
-	path = '/' + path.join('/') + '/uuid';
+	path = '/' + path.join('/') + '/hash';
 
 	if(fs.existsSync(path))
 		result = fs.readFileSync(path, null).toString();

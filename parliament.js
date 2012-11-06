@@ -8,11 +8,8 @@ var fs = require('fs');
 var net = require('net');
 var dgram = require('dgram');
 
-var mysql = require('mysql-libmysqlclient');
-
 // Require custom module
 var config = require('./config');
-var initdb = require('./library/initdb');
 var assist = require('./library/assist');
 var tcp_server = require('./library/tcp_server');
 var udp_server = require('./library/udp_server');
@@ -23,7 +20,9 @@ global.parliament = {
 	is_init: false,
 	is_quit: false,
 	heartbeat_timer: null,
-	member: {}
+	member: {},
+	sub_unique: {},
+	all_unique: {}
 }
 
 console.log('Parliament Start\n');
@@ -37,9 +36,17 @@ console.log('Node Hash  - ' + config.hash + '\n');
 if(!fs.existsSync(config.target))
 	fs.mkdirSync(config.target);
 
-// Initialize Database
-assist.log('=== SYS: Initialize Database');
-initdb.start();
+// Initialize Unique ID
+assist.log('=== SYS: Generate Unique ID Indexes');
+var list = fs.readdirSync(config.target);
+for(var index in list) {
+	// Sub Unique Indexes
+	global.parliament.sub_unique[list[index]] = 1;
+
+	// All Unique Indexes
+	global.parliament.all_unique[list[index]] = {};
+	global.parliament.all_unique[list[index]][config.hash] = 1;
+}
 
 // TCP Server Handler
 assist.log('=== SYS: Start TCP Server');
@@ -54,59 +61,64 @@ udp_server.start();
  */
 var message = new Buffer(JSON.stringify({
 	'action': 'join',
-	'hash': config.hash
+	'hash': config.hash,
 }));
 
 var client = dgram.createSocket("udp4");
 
+// Send Join Command (BC)
 client.bind(config.udp_port);
 client.setBroadcast(true);
 client.send(message, 0, message.length, config.udp_port, config.broadcast, function(error, bytes) {
     assist.log('<-- UDP: Join');
     client.close();
     
-    assist.log('<-- UDP: Join - Wait response: ' + config.wait + ' ms');
+    assist.log('<-- UDP: Join - Wait: ' + config.wait + ' ms');
+
     setTimeout(function() {
     	var status = global.parliament;
 
-		if(!status.is_init && status.member != {}) {
-			status.is_init = true;
-			status.is_leader = true;
-			status.member[config.hash] = {
-				'is_leader': true,
-				'hash': config.hash,
-				'ip': config.address
-			}
-			
-			assist.log('<-- UDP: Join - Set role: Leader');
-			assist.list_member(status.member);
-
-			// Send Heartbeat
-			assist.log('=== UDP: Heartbeat - Start');
-			status.heartbeat_timer = setInterval(function() {
-				assist.log('<-- UDP: Heartbeat');
-
-				var message = new Buffer(JSON.stringify({
-					'action': 'heartbeat'
-				}));
-
-				var client = dgram.createSocket("udp4");
-				
-				client.bind(config.udp_port);
-				client.setBroadcast(true);
-				client.send(message, 0, message.length, config.udp_port, config.broadcast, function(error, bytes) {
-					setTimeout(function() {
-						client.close();
-					}, config.wait);
-				});
-
-				client.on('message', function(buffer, remote) {
-					var data = JSON.parse(buffer.toString());
-					if(data.status != undefined)
-						assist.log('--> UDP: Heartbeat - Msg: ' + remote.address + ' ' + data.status);
-				});
-			}, config.heartbeat);
+		if(status.is_init || Object.keys(status.member) != 0)
+			return false;
+		
+		status.is_init = true;
+		status.is_leader = true;
+		status.member[config.hash] = {
+			'is_leader': true,
+			'hash': config.hash,
+			'ip': config.address
 		}
+
+		assist.log('<-- UDP: Join - Leader');
+		assist.list_member(status.member);
+
+		// Send Heartbeat
+		assist.log('=== UDP: Heartbeat - Start');
+		status.heartbeat_timer = setInterval(function() {
+			assist.log('<-- UDP: Heartbeat');
+
+			var message = new Buffer(JSON.stringify({
+				'action': 'heartbeat'
+			}));
+
+			var client = dgram.createSocket("udp4");
+			
+			client.bind(config.udp_port);
+			client.setBroadcast(true);
+			client.send(message, 0, message.length, config.udp_port, config.broadcast, function(error, bytes) {
+				setTimeout(function() {
+					client.close();
+				}, config.wait);
+			});
+
+			client.on('message', function(buffer, remote) {
+				var data = JSON.parse(buffer.toString());
+				if(data.status != undefined)
+					assist.log('--> UDP: Heartbeat - Msg: ' + remote.address + ' ' + data.status);
+			});
+
+		}, config.heartbeat);
+
     }, config.wait);
 });
 
@@ -168,19 +180,19 @@ process.on('exit', function() {
 });
 
 // Catch process uncaught Exception
-process.on('uncaughtException', function(except) {
-	assist.log(except);
+// process.on('uncaughtException', function(except) {
+// 	assist.log(except);
 
-	if(!global.parliament.is_quit) {
-		// Send Quit Command
-		sendQuit();
+// 	if(!global.parliament.is_quit) {
+// 		// Send Quit Command
+// 		sendQuit();
 	  	
-	  	// Wait N Second
-	  	setTimeout(function() {
-			process.exit(1);
-		}, config.wait);
-	}
-});
+// 	  	// Wait N Second
+// 	  	setTimeout(function() {
+// 			process.exit(1);
+// 		}, config.wait);
+// 	}
+// });
 
 // Catch Ctrl-C
 process.on('SIGINT', function() {
