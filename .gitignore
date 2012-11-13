@@ -1,6 +1,6 @@
 .settings
 .project
 node_modules
-uuid
+hash
 shared_folder
 config.js

@@ -155,9 +155,6 @@ exports.quit = function(data, socket, remote) {
 				delete status.all_unique[id];
 		}
 
-	// console.log(status.sub_unique);
-	// console.log(status.all_unique);
-
 	// Delete quit node
 	delete status.member[data.hash];
 
