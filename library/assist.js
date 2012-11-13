@@ -64,7 +64,7 @@ function hash() {
 	path = '/' + path.join('/') + '/hash';
 
 	if(fs.existsSync(path))
-		result = fs.readFileSync(path, null).toString();
+		result = fs.readFileSync(path, null).toString().replace('\n', '');
 	else {
 		result = messString(8);
 		fs.writeFileSync(path, result);

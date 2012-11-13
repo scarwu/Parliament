@@ -9,8 +9,6 @@ var util = require('util');
 var config = require('../config');
 var assist = require('./assist');
 
-var json = require('json-streams');
-
 // File system extend
 fs.copy = function(source, destination, callback) {
 	function copy() {
@@ -282,7 +280,7 @@ function send_delete(option, unique_id) {
  * Get all unique record
  */
 exports.all_unique = function(data, socket) {
-	assist.log('--> TCP: All Unique');
+	assist.log('<-- TCP: All Unique');
 
 	var status = global.parliament;
 
@@ -290,12 +288,12 @@ exports.all_unique = function(data, socket) {
 	socket.end();
 
 	socket.on('end', function() {
-		assist.log('--> TCP: Unique - End');
+		assist.log('<-- TCP: Unique - End');
 	});
 }
 
 exports.sub_unique = function(data, socket) {
-	assist.log('--> TCP: Sub Unique');
+	assist.log('<-- TCP: Sub Unique');
 
 	var status = global.parliament;
 
@@ -303,7 +301,7 @@ exports.sub_unique = function(data, socket) {
 	socket.end();
 
 	socket.on('end', function() {
-		assist.log('--> TCP: Unique - End');
+		assist.log('<-- TCP: Unique - End');
 	});
 }
 
