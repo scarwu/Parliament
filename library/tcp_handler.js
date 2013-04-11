@@ -23,7 +23,7 @@ fs.copy = function(source, destination, callback) {
  * Find Unique ID is exists
  */
 exports.exists = function(data, socket) {
-	var status = global.parliament;
+	var status = global._status;
 	var exists = data.unique_id in status.all_unique;
 
 	assist.log('--> TCP: Exists - FIle: ' + data.unique_id + ' ' + exists);
@@ -37,7 +37,7 @@ exports.exists = function(data, socket) {
  * Read File or Redirect
  */
 exports.read = function(data, socket) {
-	var status = global.parliament;
+	var status = global._status;
 	
 	assist.log('--> TCP: Read');
 
@@ -93,7 +93,7 @@ exports.read = function(data, socket) {
 exports.create = function(data, socket) {
 	socket.end();
 
-	var status = global.parliament;
+	var status = global._status;
 	
 	assist.log('--> TCP: Create - File: ' + data.unique_id);
 
@@ -152,7 +152,7 @@ exports.create = function(data, socket) {
 exports.backup = function(data, socket) {
 	socket.end();
 
-	var status = global.parliament;
+	var status = global._status;
 
 	assist.log('--> TCP: Backup - File: ' + data.unique_id);
 
@@ -203,7 +203,7 @@ exports.backup = function(data, socket) {
 exports.delete = function(data, socket) {
 	socket.end();
 
-	var status = global.parliament;
+	var status = global._status;
 	var path = config.target + '/' +  data.unique_id.replace('/', '');
 
 	// FIXME file check
@@ -282,7 +282,7 @@ function send_delete(option, unique_id) {
 exports.all_unique = function(data, socket) {
 	assist.log('<-- TCP: All Unique');
 
-	var status = global.parliament;
+	var status = global._status;
 
 	socket.write(JSON.stringify(status.all_unique));
 	socket.end();
@@ -295,7 +295,7 @@ exports.all_unique = function(data, socket) {
 exports.sub_unique = function(data, socket) {
 	assist.log('<-- TCP: Sub Unique');
 
-	var status = global.parliament;
+	var status = global._status;
 
 	socket.write(JSON.stringify(status.sub_unique));
 	socket.end();
@@ -313,7 +313,7 @@ exports.record_merge = function(data, socket) {
 
 	assist.log('--> TCP: Record Merge');
 
-	var status = global.parliament;
+	var status = global._status;
 	var client = net.connect({
 		'port': config.tcp_port,
 		'host': socket.remoteAddress
@@ -348,7 +348,7 @@ exports.record_append = function(data, socket) {
 
 	assist.log('--> TCP: Record Append');
 
-	var status = global.parliament;
+	var status = global._status;
 
 	if(status.all_unique[data.unique] == undefined)
 		status.all_unique[data.unique] = {};
@@ -364,7 +364,7 @@ exports.record_delete = function(data, socket) {
 
 	assist.log('--> TCP: Record Delete');
 
-	var status = global.parliament;
+	var status = global._status;
 
 	delete status.all_unique[data.unique][data.hash];
 

@@ -14,7 +14,7 @@ var assist = require('./assist');
  * Heartbeat
  */
 exports.heartbeat = function(data, socket, remote) {
-	var status = global.parliament;
+	var status = global._status;
 
 	if(!status.is_init || remote.address == config.address)
 		return false;
@@ -33,7 +33,7 @@ exports.heartbeat = function(data, socket, remote) {
  * Join group
  */
 exports.join = function(data, socket, remote) {
-	var status = global.parliament;
+	var status = global._status;
 	
 	// is init and is leader
 	if(!status.is_init || !status.is_leader)
@@ -74,7 +74,7 @@ exports.join = function(data, socket, remote) {
  * Accept new member
  */
 exports.accept = function(data, socket, remote) {
-	var status = global.parliament;
+	var status = global._status;
 
 	if(status.is_init)
 		return false;
@@ -141,7 +141,7 @@ function send_record_merge(option) {
  * Quit group
  */
 exports.quit = function(data, socket, remote) {
-	var status = global.parliament;
+	var status = global._status;
 
 	if(remote.address == config.address || !status.is_init)
 		return false;
@@ -211,7 +211,7 @@ exports.quit = function(data, socket, remote) {
  * Refresh list
  */
 exports.refresh = function(data, socket, remote) {
-	var status = global.parliament;
+	var status = global._status;
 	
 	if(!status.is_init)
 		return false;

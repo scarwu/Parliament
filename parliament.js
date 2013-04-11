@@ -15,7 +15,7 @@ var tcp_server = require('./library/tcp_server');
 var udp_server = require('./library/udp_server');
 
 // Parliament status
-global.parliament = {
+global._status = {
 	is_leader: false,
 	is_init: false,
 	is_quit: false,
@@ -41,11 +41,11 @@ assist.log('=== SYS: Generate Unique ID Indexes');
 var list = fs.readdirSync(config.target);
 for(var index in list) {
 	// Sub Unique Indexes
-	global.parliament.sub_unique[list[index]] = 1;
+	global._status.sub_unique[list[index]] = 1;
 
 	// All Unique Indexes
-	global.parliament.all_unique[list[index]] = {};
-	global.parliament.all_unique[list[index]][config.hash] = 1;
+	global._status.all_unique[list[index]] = {};
+	global._status.all_unique[list[index]][config.hash] = 1;
 }
 
 // TCP Server Handler
@@ -76,7 +76,7 @@ client.send(message, 0, message.length, config.udp_port, config.broadcast, funct
     assist.log('<-- UDP: Join - Wait: ' + config.wait + ' ms');
 
     setTimeout(function() {
-    	var status = global.parliament;
+    	var status = global._status;
 
 		if(status.is_init || Object.keys(status.member) != 0)
 			return false;
@@ -128,7 +128,7 @@ client.send(message, 0, message.length, config.udp_port, config.broadcast, funct
  * if process catch SIGINT or Process Exit Event then Send Quit Commmd 
  */
 function sendQuit() {
-	var status = global.parliament;
+	var status = global._status;
 
 	status.is_quit = true;
 	
@@ -174,7 +174,7 @@ function sendQuit() {
 
 // Catch process exit
 process.on('exit', function() {
-	if(!global.parliament.is_quit)
+	if(!global._status.is_quit)
 		// Send Quit Command
 		sendQuit();
 });
@@ -183,7 +183,7 @@ process.on('exit', function() {
 // process.on('uncaughtException', function(except) {
 // 	assist.log(except);
 
-// 	if(!global.parliament.is_quit) {
+// 	if(!global._status.is_quit) {
 // 		// Send Quit Command
 // 		sendQuit();
 	  	
@@ -196,7 +196,7 @@ process.on('exit', function() {
 
 // Catch Ctrl-C
 process.on('SIGINT', function() {
-	if(!global.parliament.is_quit) {
+	if(!global._status.is_quit) {
 		console.log();
 
 		// Send Quit Command	

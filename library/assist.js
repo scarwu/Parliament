@@ -75,7 +75,7 @@ function hash() {
 
 function log(output) {
 	var date = new Date();
-	var role = global.parliament.is_leader ? 'Leader' : 'Member';
+	var role = global._status.is_leader ? 'Leader' : 'Member';
 	console.log('[%s] %s: %s', date.toTimeString().substr(0, 8), role, output);
 }
 
