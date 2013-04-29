@@ -68,8 +68,9 @@ var message = new Buffer(JSON.stringify({
 var client = dgram.createSocket("udp4");
 
 // Send Join Command (BC)
-client.bind(config.udp_port);
-client.setBroadcast(true);
+client.bind(config.udp_port, function () {
+	client.setBroadcast(true);	
+});
 client.send(message, 0, message.length, config.udp_port, config.broadcast, function(error, bytes) {
     util.log('<-- UDP: Join');
     client.close();
@@ -104,8 +105,10 @@ client.send(message, 0, message.length, config.udp_port, config.broadcast, funct
 
 			var client = dgram.createSocket("udp4");
 			
-			client.bind(config.udp_port);
-			client.setBroadcast(true);
+			client.bind(config.udp_port, function () {
+				client.setBroadcast(true);
+			});
+			
 			client.send(message, 0, message.length, config.udp_port, config.broadcast, function(error, bytes) {
 				setTimeout(function() {
 					client.close();
@@ -120,7 +123,7 @@ client.send(message, 0, message.length, config.udp_port, config.broadcast, funct
 
 		}, config.heartbeat);
 
-    }, config.wait);
+	}, config.wait);
 });
 
 /**
@@ -156,8 +159,10 @@ function sendQuit() {
 	// Send Command: Quit
 	var client = dgram.createSocket("udp4");
 	
-	client.bind(config.udp_port);
-	client.setBroadcast(true);
+	client.bind(config.udp_port, function () {
+		client.setBroadcast(true);
+	});
+	
 	client.send(message, 0, message.length, config.udp_port, config.broadcast, function(error, bytes) {
 		if(error)
 	    	throw error;
