@@ -1,6 +1,14 @@
 Parliament
 ==========
 
-### Description
+The Distributed File System
 
-Just for fun.
+## Getting Started
+
+### Requirement
+
+* NodeJS 0.8.0+
+
+## Notice
+
+This project only for research use
