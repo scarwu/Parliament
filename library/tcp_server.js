@@ -12,7 +12,7 @@ var tcp_server = net.createServer(function(socket) {
 		try {
 			var data = JSON.parse(message);
 
-			if(global.parliament.is_init && data.action in tcp_handler)
+			if(global._status.is_init && data.action in tcp_handler)
 				tcp_handler[data.action](data, socket);
 		}
 		catch(error) {

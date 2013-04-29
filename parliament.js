@@ -7,6 +7,7 @@ var os = require('os');
 var fs = require('fs');
 var net = require('net');
 var dgram = require('dgram');
+var util = require('util');
 
 // Require custom module
 var config = require('./config');
@@ -15,7 +16,7 @@ var tcp_server = require('./library/tcp_server');
 var udp_server = require('./library/udp_server');
 
 // Parliament status
-global.parliament = {
+global._status = {
 	is_leader: false,
 	is_init: false,
 	is_quit: false,
@@ -37,23 +38,23 @@ if(!fs.existsSync(config.target))
 	fs.mkdirSync(config.target);
 
 // Initialize Unique ID
-assist.log('=== SYS: Generate Unique ID Indexes');
+util.log('=== SYS: Generate Unique ID Indexes');
 var list = fs.readdirSync(config.target);
 for(var index in list) {
 	// Sub Unique Indexes
-	global.parliament.sub_unique[list[index]] = 1;
+	global._status.sub_unique[list[index]] = 1;
 
 	// All Unique Indexes
-	global.parliament.all_unique[list[index]] = {};
-	global.parliament.all_unique[list[index]][config.hash] = 1;
+	global._status.all_unique[list[index]] = {};
+	global._status.all_unique[list[index]][config.hash] = 1;
 }
 
 // TCP Server Handler
-assist.log('=== SYS: Start TCP Server');
+util.log('=== SYS: Start TCP Server');
 tcp_server.start();
 
 // UDP Server Handler
-assist.log('=== SYS: Start UDP Server');
+util.log('=== SYS: Start UDP Server');
 udp_server.start();
 
 /**
@@ -70,13 +71,13 @@ var client = dgram.createSocket("udp4");
 client.bind(config.udp_port);
 client.setBroadcast(true);
 client.send(message, 0, message.length, config.udp_port, config.broadcast, function(error, bytes) {
-    assist.log('<-- UDP: Join');
+    util.log('<-- UDP: Join');
     client.close();
     
-    assist.log('<-- UDP: Join - Wait: ' + config.wait + ' ms');
+    util.log('<-- UDP: Join - Wait: ' + config.wait + ' ms');
 
     setTimeout(function() {
-    	var status = global.parliament;
+    	var status = global._status;
 
 		if(status.is_init || Object.keys(status.member) != 0)
 			return false;
@@ -89,13 +90,13 @@ client.send(message, 0, message.length, config.udp_port, config.broadcast, funct
 			'ip': config.address
 		}
 
-		assist.log('<-- UDP: Join - Leader');
+		util.log('<-- UDP: Join - Leader');
 		assist.list_member(status.member);
 
 		// Send Heartbeat
-		assist.log('=== UDP: Heartbeat - Start');
+		util.log('=== UDP: Heartbeat - Start');
 		status.heartbeat_timer = setInterval(function() {
-			assist.log('<-- UDP: Heartbeat');
+			util.log('<-- UDP: Heartbeat');
 
 			var message = new Buffer(JSON.stringify({
 				'action': 'heartbeat'
@@ -114,7 +115,7 @@ client.send(message, 0, message.length, config.udp_port, config.broadcast, funct
 			client.on('message', function(buffer, remote) {
 				var data = JSON.parse(buffer.toString());
 				if(data.status != undefined)
-					assist.log('--> UDP: Heartbeat - Msg: ' + remote.address + ' ' + data.status);
+					util.log('--> UDP: Heartbeat - Msg: ' + remote.address + ' ' + data.status);
 			});
 
 		}, config.heartbeat);
@@ -128,7 +129,7 @@ client.send(message, 0, message.length, config.udp_port, config.broadcast, funct
  * if process catch SIGINT or Process Exit Event then Send Quit Commmd 
  */
 function sendQuit() {
-	var status = global.parliament;
+	var status = global._status;
 
 	status.is_quit = true;
 	
@@ -161,7 +162,7 @@ function sendQuit() {
 		if(error)
 	    	throw error;
 	    	
-	    assist.log('<-- UDP: Quit');
+	    util.log('<-- UDP: Quit');
 	    client.close();
 	});
 	
@@ -174,16 +175,16 @@ function sendQuit() {
 
 // Catch process exit
 process.on('exit', function() {
-	if(!global.parliament.is_quit)
+	if(!global._status.is_quit)
 		// Send Quit Command
 		sendQuit();
 });
 
 // Catch process uncaught Exception
 // process.on('uncaughtException', function(except) {
-// 	assist.log(except);
+// 	util.log(except);
 
-// 	if(!global.parliament.is_quit) {
+// 	if(!global._status.is_quit) {
 // 		// Send Quit Command
 // 		sendQuit();
 	  	
@@ -196,7 +197,7 @@ process.on('exit', function() {
 
 // Catch Ctrl-C
 process.on('SIGINT', function() {
-	if(!global.parliament.is_quit) {
+	if(!global._status.is_quit) {
 		console.log();
 
 		// Send Quit Command	
