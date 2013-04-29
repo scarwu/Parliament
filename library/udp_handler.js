@@ -3,6 +3,7 @@
 // Require module
 var net = require('net');
 var dgram = require('dgram');
+var util = require('util');
 
 // Require custom module
 var config = require('../config');
@@ -19,8 +20,8 @@ exports.heartbeat = function(data, socket, remote) {
 	if(!status.is_init || remote.address == config.address)
 		return false;
 
-	assist.log('--> UDP: Heartbeat');
-	assist.log('<-- UDP: Heartbeat - Status: Alive');
+	util.log('--> UDP: Heartbeat');
+	util.log('<-- UDP: Heartbeat - Status: Alive');
 
 	var message = new Buffer(JSON.stringify({
 		'status': 'alive',
@@ -39,7 +40,7 @@ exports.join = function(data, socket, remote) {
 	if(!status.is_init || !status.is_leader)
 		return false;
 
-	assist.log('--> UDP: Join');
+	util.log('--> UDP: Join');
 
 	status.member[data.hash] = {
 		'is_leader': false,
@@ -54,7 +55,7 @@ exports.join = function(data, socket, remote) {
 		'member': status.member
 	}));
 	socket.send(message, 0, message.length, config.udp_port, remote.address);
-	assist.log('<-- UDP: Join - Accept');
+	util.log('<-- UDP: Join - Accept');
 
 	// Send Command: Refresh
 	var message = new Buffer(JSON.stringify({
@@ -64,9 +65,9 @@ exports.join = function(data, socket, remote) {
 	}));
 	socket.setBroadcast(true);
 	socket.send(message, 0, message.length, config.udp_port, config.broadcast);
-	assist.log('<-- UDP: Join - Refresh');
+	util.log('<-- UDP: Join - Refresh');
 
-	assist.log('=== UDP: Join - IP: ' + remote.address);
+	util.log('=== UDP: Join - IP: ' + remote.address);
 	assist.list_member(status.member);
 }
 
@@ -82,11 +83,11 @@ exports.accept = function(data, socket, remote) {
 	status.is_init = true;
 	status.member = data.member;
 
-	assist.log('--> UDP: Accept');
-	assist.log('--> UDP: Accept - Member');
+	util.log('--> UDP: Accept');
+	util.log('--> UDP: Accept - Member');
 	assist.list_member(status.member);
 
-	assist.log('<-- UDP: Accept - Unique: Request');
+	util.log('<-- UDP: Accept - Unique: Request');
 
 	// Request All Unique
 	var client = net.connect({
@@ -103,7 +104,7 @@ exports.accept = function(data, socket, remote) {
 
 	// handle buffer
 	json_stream.on('data', function(unique) {
-		assist.log('=== UDP: Accept - Unique: End');
+		util.log('=== UDP: Accept - Unique: End');
 		for(var id in unique) {
 			if(status.all_unique[id] == undefined)
 				status.all_unique[id] = {};
@@ -112,7 +113,7 @@ exports.accept = function(data, socket, remote) {
 				status.all_unique[id][hash] = 1;
 		}
 
-		assist.log('<-- UDP: Accept - Unique: Merge');
+		util.log('<-- UDP: Accept - Unique: Merge');
 		// Send sub unique
 		for(var hash in status.member)
 			if(hash != config.hash)
@@ -158,10 +159,10 @@ exports.quit = function(data, socket, remote) {
 	// Delete quit node
 	delete status.member[data.hash];
 
-	assist.log('--> UDP: Quit');
+	util.log('--> UDP: Quit');
 
 	if(data.leader == config.hash) {
-		assist.log('--> UDP: Quit - Set role: Leader');
+		util.log('--> UDP: Quit - Set role: Leader');
 
 		status.is_leader = true;
 		status.member[config.hash].is_leader = true;
@@ -174,12 +175,12 @@ exports.quit = function(data, socket, remote) {
 		}));
 		socket.setBroadcast(true);
 		socket.send(message, 0, message.length, config.udp_port, config.broadcast);
-		assist.log('<-- UDP: Quit - Refresh');
+		util.log('<-- UDP: Quit - Refresh');
 
 		// Send Heartbeat
-		assist.log('=== UDP: Heartbeat - Start');
+		util.log('=== UDP: Heartbeat - Start');
 		status.heartbeat_timer = setInterval(function() {
-			assist.log('<-- UDP: Heartbeat');
+			util.log('<-- UDP: Heartbeat');
 
 			var message = new Buffer(JSON.stringify({
 				'action': 'heartbeat'
@@ -198,12 +199,12 @@ exports.quit = function(data, socket, remote) {
 			client.on('message', function(buffer, remote) {
 				var data = JSON.parse(buffer.toString());
 				if(data.status != undefined)
-					assist.log('--> UDP: Heartbeat - Msg: ' + remote.address + ' ' + data.status);
+					util.log('--> UDP: Heartbeat - Msg: ' + remote.address + ' ' + data.status);
 			});
 		}, config.heartbeat);
 	}
 
-	assist.log('=== UDP: Quit - IP: ' + remote.address);
+	util.log('=== UDP: Quit - IP: ' + remote.address);
 	assist.list_member(status.member);
 }
 
@@ -218,6 +219,6 @@ exports.refresh = function(data, socket, remote) {
 
 	status.member = data.member;
 
-	assist.log('--> UDP: Refresh');
+	util.log('--> UDP: Refresh');
 	assist.list_member(status.member);
 }

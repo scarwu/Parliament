@@ -26,7 +26,7 @@ exports.exists = function(data, socket) {
 	var status = global._status;
 	var exists = data.unique_id in status.all_unique;
 
-	assist.log('--> TCP: Exists - FIle: ' + data.unique_id + ' ' + exists);
+	util.log('--> TCP: Exists - FIle: ' + data.unique_id + ' ' + exists);
 	socket.write(JSON.stringify({
 		'exists': exists
 	}));
@@ -39,10 +39,10 @@ exports.exists = function(data, socket) {
 exports.read = function(data, socket) {
 	var status = global._status;
 	
-	assist.log('--> TCP: Read');
+	util.log('--> TCP: Read');
 
 	if(data.unique_id in status.sub_unique) {
-		assist.log('<-- TCP: Read - File: ' + data.unique_id);
+		util.log('<-- TCP: Read - File: ' + data.unique_id);
 
 		var path = config.target + '/' +  data.unique_id.replace('/', '');
 
@@ -51,11 +51,11 @@ exports.read = function(data, socket) {
 		read_stream.pipe(socket);
 
 		socket.on('end', function() {
-			assist.log('=== TCP: Read - File Size: ' + fs.statSync(path).size + ' bytes');
+			util.log('=== TCP: Read - File Size: ' + fs.statSync(path).size + ' bytes');
 		});
 	}
 	else if(data.unique_id in status.all_unique) {
-		assist.log('<-- TCP: Read - Read - File: ' + data.unique_id);
+		util.log('<-- TCP: Read - Read - File: ' + data.unique_id);
 
 		// Compare DB table and Member List
 		var entity_list = new Array();
@@ -64,7 +64,7 @@ exports.read = function(data, socket) {
 				entity_list.push(hash);
 		}
 
-		assist.log('=== TCP: Read - Read - Node: ' + JSON.stringify(entity_list));
+		util.log('=== TCP: Read - Read - Node: ' + JSON.stringify(entity_list));
 
 		// FIXME
 		var client = net.connect({
@@ -82,7 +82,7 @@ exports.read = function(data, socket) {
 		client.pipe(socket);
 
 		socket.on('end', function() {
-			assist.log('=== TCP: Read - Redirect');
+			util.log('=== TCP: Read - Redirect');
 		});
 	}
 }
@@ -95,7 +95,7 @@ exports.create = function(data, socket) {
 
 	var status = global._status;
 	
-	assist.log('--> TCP: Create - File: ' + data.unique_id);
+	util.log('--> TCP: Create - File: ' + data.unique_id);
 
 	if(data.unique_id in status.all_unique) {
 		socket.end();
@@ -110,8 +110,8 @@ exports.create = function(data, socket) {
 			return false;
 		}
 
-		assist.log('=== TCP: Create - File Size: ' + fs.statSync(path).size + ' bytes');
-		assist.log('=== TCP: Create - Record write-back: ' + data.unique_id);
+		util.log('=== TCP: Create - File Size: ' + fs.statSync(path).size + ' bytes');
+		util.log('=== TCP: Create - Record write-back: ' + data.unique_id);
 
 		if(status.all_unique[data.unique_id] == undefined)
 			status.all_unique[data.unique_id] = {};
@@ -132,7 +132,7 @@ exports.create = function(data, socket) {
 		var count = 0;
 		for(var hash in status.member)
 			if(hash != config.hash) {
-				assist.log('<-- TCP: Backup - IP: ' + status.member[hash].ip);
+				util.log('<-- TCP: Backup - IP: ' + status.member[hash].ip);
 
 				//FIXME need follow index value
 				send_backup({
@@ -154,7 +154,7 @@ exports.backup = function(data, socket) {
 
 	var status = global._status;
 
-	assist.log('--> TCP: Backup - File: ' + data.unique_id);
+	util.log('--> TCP: Backup - File: ' + data.unique_id);
 
 	// Send Command: Read
 	var client = net.connect({
@@ -165,7 +165,7 @@ exports.backup = function(data, socket) {
 			'action': 'read',
 			'unique_id': data.unique_id
 		}));
-		assist.log('<-- TCP: Backup - Read - File: ' + data.unique_id);
+		util.log('<-- TCP: Backup - Read - File: ' + data.unique_id);
 	});
 	
 	var path = config.target + '/' +  data.unique_id.replace('/', '');
@@ -176,8 +176,8 @@ exports.backup = function(data, socket) {
 
 	client.on('end', function() {
 		if(fs.existsSync(path)) {
-			assist.log('=== TCP: Backup - Read - File Size: ' + fs.statSync(path).size + ' bytes');
-			assist.log('=== TCP: Backup - Record write-back: ' + data.unique_id);
+			util.log('=== TCP: Backup - Read - File Size: ' + fs.statSync(path).size + ' bytes');
+			util.log('=== TCP: Backup - Record write-back: ' + data.unique_id);
 
 			if(status.all_unique[data.unique_id] == undefined)
 				status.all_unique[data.unique_id] = {};
@@ -214,7 +214,7 @@ exports.delete = function(data, socket) {
 				return false;
 			}
 
-			assist.log('--> TCP: Delete - File: ' + data.unique_id);
+			util.log('--> TCP: Delete - File: ' + data.unique_id);
 
 			delete status.sub_unique[data.unique_id];
 			delete status.all_unique[data.unique_id][config.hash];
@@ -232,7 +232,7 @@ exports.delete = function(data, socket) {
 
 			if(data.unique_id in status.all_unique) {
 				for(var hash in status.all_unique[data.unique_id]) {
-					assist.log('--> TCP: Delete - Next - File: ' + data.unique_id);
+					util.log('--> TCP: Delete - Next - File: ' + data.unique_id);
 					send_delete({
 						'port': config.tcp_port,
 						'host': status.member[hash].ip
@@ -242,7 +242,7 @@ exports.delete = function(data, socket) {
 			}
 		});
 	else if(data.unique_id in status.all_unique) {
-		assist.log('--> TCP: Delete - Redirect - File: ' + data.unique_id);
+		util.log('--> TCP: Delete - Redirect - File: ' + data.unique_id);
 
 		for(var hash in status.all_unique[data.unique_id]) {
 			send_delete({
@@ -280,7 +280,7 @@ function send_delete(option, unique_id) {
  * Get all unique record
  */
 exports.all_unique = function(data, socket) {
-	assist.log('<-- TCP: All Unique');
+	util.log('<-- TCP: All Unique');
 
 	var status = global._status;
 
@@ -288,12 +288,12 @@ exports.all_unique = function(data, socket) {
 	socket.end();
 
 	socket.on('end', function() {
-		assist.log('<-- TCP: Unique - End');
+		util.log('<-- TCP: Unique - End');
 	});
 }
 
 exports.sub_unique = function(data, socket) {
-	assist.log('<-- TCP: Sub Unique');
+	util.log('<-- TCP: Sub Unique');
 
 	var status = global._status;
 
@@ -301,7 +301,7 @@ exports.sub_unique = function(data, socket) {
 	socket.end();
 
 	socket.on('end', function() {
-		assist.log('<-- TCP: Unique - End');
+		util.log('<-- TCP: Unique - End');
 	});
 }
 
@@ -311,7 +311,7 @@ exports.sub_unique = function(data, socket) {
 exports.record_merge = function(data, socket) {
 	socket.end();
 
-	assist.log('--> TCP: Record Merge');
+	util.log('--> TCP: Record Merge');
 
 	var status = global._status;
 	var client = net.connect({
@@ -327,7 +327,7 @@ exports.record_merge = function(data, socket) {
 	client.pipe(json_stream);
 
 	json_stream.on('data', function(unique) {
-	    assist.log('--> TCP: Record Merge: End');
+	    util.log('--> TCP: Record Merge: End');
 
 		for(var id in unique) {
 			if(status.all_unique[id] == undefined)
@@ -346,7 +346,7 @@ exports.record_merge = function(data, socket) {
 exports.record_append = function(data, socket) {
 	socket.end();
 
-	assist.log('--> TCP: Record Append');
+	util.log('--> TCP: Record Append');
 
 	var status = global._status;
 
@@ -362,7 +362,7 @@ exports.record_append = function(data, socket) {
 exports.record_delete = function(data, socket) {
 	socket.end();
 
-	assist.log('--> TCP: Record Delete');
+	util.log('--> TCP: Record Delete');
 
 	var status = global._status;
 

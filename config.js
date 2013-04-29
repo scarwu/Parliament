@@ -31,4 +31,4 @@ exports.name_length = 32
 exports.hash = assist.hash();
 
 // DFS Target Directory
-exports.target = './shared_folder';
+exports.target = './tmp/shared_folder';

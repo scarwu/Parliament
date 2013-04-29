@@ -3,6 +3,7 @@
 // Require module
 var os = require('os');
 var fs = require('fs');
+var util = require('util');
 
 // Module Exports
 exports.messString = messString;
@@ -10,7 +11,6 @@ exports.hash = hash;
 exports.getAddress = getAddress;
 exports.getBroadcast = getBroadcast;
 exports.list_member = list_member;
-exports.log = log;
 
 // Get IP Address
 function getAddress(device_name) {
@@ -61,7 +61,7 @@ function hash() {
 	var result = null;
 	var path = process.argv[1].split('/');
 	path.pop();
-	path = '/' + path.join('/') + '/hash';
+	path = '/' + path.join('/') + '/tmp/hash';
 
 	if(fs.existsSync(path))
 		result = fs.readFileSync(path, null).toString().replace('\n', '');
@@ -73,15 +73,9 @@ function hash() {
 	return result;
 }
 
-function log(output) {
-	var date = new Date();
-	var role = global._status.is_leader ? 'Leader' : 'Member';
-	console.log('[%s] %s: %s', date.toTimeString().substr(0, 8), role, output);
-}
-
 function list_member(member) {
 	for(var index in member) {
 		var output = member[index].is_leader ? 'Leader: ' : 'Member: ';
-		log('=== SYS: ' + output + member[index].hash + ' (' + member[index].ip + ')');
+		util.log('=== SYS: ' + output + member[index].hash + ' (' + member[index].ip + ')');
 	}
 }
