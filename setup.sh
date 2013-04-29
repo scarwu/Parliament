@@ -1,5 +1,5 @@
 #!/bin/sh
 
-npm install -g JSONStream
+npm install JSONStream
 
-npm list -g
+npm list
