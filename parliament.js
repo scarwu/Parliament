@@ -1,4 +1,13 @@
 #!/usr/bin/env node
+/**
+ * Parliament Bootstrap
+ * 
+ * @package		Parliament
+ * @author		ScarWu
+ * @copyright	Copyright (c) 2012-2013, ScarWu (http://scar.simcz.tw/)
+ * @license		https://github.com/scarwu/Parliament/blob/master/LICENSE
+ * @link		https://github.com/scarwu/Parliament
+ */
 
 'use strict';
 
